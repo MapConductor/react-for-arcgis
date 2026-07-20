@@ -9,6 +9,16 @@ Cesium, or HERE.
 ## Installation
 
 ```shell
+npm install @mapconductor/react-for-arcgis
+```
+
+`@mapconductor/js-sdk-core` and `@mapconductor/js-sdk-react` (used for markers and
+other shared components) are installed automatically as dependencies. Your
+code imports from both directly, so with pnpm's strict (isolated)
+`node_modules` — or whenever you prefer to declare everything you import —
+install them explicitly instead:
+
+```shell
 npm install @mapconductor/react-for-arcgis @mapconductor/js-sdk-core @mapconductor/js-sdk-react
 ```
 
