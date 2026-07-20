@@ -1,4 +1,4 @@
-import type { MapConfig, MarkerTilingOptions } from '@mapconductor/js-sdk-core';
+import type { GeoRectBounds, MapConfig, MarkerTilingOptions } from '@mapconductor/js-sdk-core';
 import type { ArcGISDesignTypeInterface } from './ArcGISMapDesign';
 
 export interface ArcGISMapViewInitOptions {
@@ -11,4 +11,8 @@ export interface ArcGISConfig extends MapConfig {
   mapDesignType?: ArcGISDesignTypeInterface;
   markerTilingOptions?: MarkerTilingOptions;
   useSceneView?: boolean;
+  minZoom?: number;
+  maxZoom?: number;
+  /** Restricts panning/zooming so the viewport cannot leave this rectangle. */
+  restrictBounds?: GeoRectBounds;
 }

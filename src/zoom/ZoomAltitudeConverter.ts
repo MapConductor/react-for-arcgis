@@ -9,11 +9,14 @@ export interface ZoomAltitudeViewportSize {
 
 export class ZoomAltitudeConverter extends AbstractZoomAltitudeConverter {
     static readonly ARCGIS_OPTIMIZED_ZOOM0_ALTITUDE = 136_500_000.0;
-    // Reference map view height, calibrated to match a standard modern phone
-    // (mirrors Android's REFERENCE_HEIGHT_DP). Google Maps shows geographic
-    // range proportional to viewport pixels, so we scale altitude linearly
-    // with viewport height to match that behaviour.
+    // Legacy fallback: reference map view height calibrated on a phone-like
+    // viewport (mirrors Android's REFERENCE_HEIGHT_DP). Only used when the
+    // viewport width is unknown; see effectiveZoom0Altitude.
     static readonly REFERENCE_VIEWPORT_HEIGHT_PX = 720;
+    // SceneView's Camera.fov default (degrees). ArcGIS defines fov as the
+    // DIAGONAL field of view, so the ground extent covered by the camera is
+    // fixed along the viewport diagonal, not its height.
+    static readonly SCENE_VIEW_DIAGONAL_FOV_DEG = 55;
 
     constructor(
         zoom0Altitude = ZoomAltitudeConverter.ARCGIS_OPTIMIZED_ZOOM0_ALTITUDE,
@@ -23,11 +26,28 @@ export class ZoomAltitudeConverter extends AbstractZoomAltitudeConverter {
     }
 
     private effectiveZoom0Altitude(): number {
-        const height = this.viewportSizeProvider?.()?.height;
-        const viewportScale = height == null || !Number.isFinite(height) || height <= 0
-            ? 1
-            : height / ZoomAltitudeConverter.REFERENCE_VIEWPORT_HEIGHT_PX;
-        return this.zoom0Altitude * viewportScale;
+        const size = this.viewportSizeProvider?.();
+        const width = size?.width;
+        const height = size?.height;
+        const validHeight = height != null && Number.isFinite(height) && height > 0;
+        const validWidth = width != null && Number.isFinite(width) && width > 0;
+        if (validHeight && validWidth) {
+            // Google Maps shows WEB_MERCATOR_INITIAL_MPP_256 * cos(lat) / 2^zoom
+            // ground meters per screen pixel. SceneView spreads its diagonal fov
+            // over the viewport diagonal, so at altitude z one pixel covers
+            // 2 * z * tan(fov / 2) / diagonalPx meters. Solving for z at zoom 0
+            // (cos(lat) is applied by the callers) gives the altitude below.
+            // Scaling by height alone (the Android-derived heuristic) matches
+            // only phone-like aspect ratios and over-zooms wide viewports.
+            const diagonalPx = Math.hypot(width, height);
+            const halfFovRad = degToRad(ZoomAltitudeConverter.SCENE_VIEW_DIAGONAL_FOV_DEG / 2);
+            return (AbstractZoomAltitudeConverter.WEB_MERCATOR_INITIAL_MPP_256 * diagonalPx)
+                / (2 * Math.tan(halfFovRad));
+        }
+        if (validHeight) {
+            return this.zoom0Altitude * (height / ZoomAltitudeConverter.REFERENCE_VIEWPORT_HEIGHT_PX);
+        }
+        return this.zoom0Altitude;
     }
 
     private cosLatitudeFactor(latitude: number): number {

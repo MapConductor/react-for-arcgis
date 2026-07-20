@@ -7,7 +7,10 @@ import {
 } from '@mapconductor/js-sdk-core';
 import { ArcGISViewHolder } from '../ArcGISViewHolder';
 import { toArcGISFillStyle } from '../color';
+import { CSS_PIXELS_TO_POINTS } from '../helpers';
 import Graphic from '@arcgis/core/Graphic';
+import Circle from '@arcgis/core/geometry/Circle';
+import Point from '@arcgis/core/geometry/Point';
 
 export class ArcGISCircleOverlayRenderer implements CircleOverlayRenderer<__esri.Graphic> {
   constructor(
@@ -17,20 +20,10 @@ export class ArcGISCircleOverlayRenderer implements CircleOverlayRenderer<__esri
 
   createCircle(entity: CircleEntity<__esri.Graphic>): __esri.Graphic | null {
     const state = entity.state;
-    const position = state.center;
-
-    const point = {
-      type: 'point' as const,
-      longitude: position.longitude,
-      latitude: position.latitude,
-      spatialReference: { wkid: 4326 },
-    };
-
-    const circleSymbol = this.createCircleSymbol(state);
 
     const graphic = new Graphic({
-      geometry: point as __esri.PointProperties & { type: 'point' },
-      symbol: circleSymbol,
+      geometry: this.createCircleGeometry(state),
+      symbol: this.createCircleSymbol(state),
       attributes: {
         id: state.id,
       },
@@ -42,17 +35,26 @@ export class ArcGISCircleOverlayRenderer implements CircleOverlayRenderer<__esri
 
   updateCircle(graphic: __esri.Graphic, entity: CircleEntity<__esri.Graphic>): void {
     const state = entity.state;
-    const position = state.center;
+    graphic.geometry = this.createCircleGeometry(state);
+    graphic.symbol = this.createCircleSymbol(state);
+  }
 
-    graphic.geometry = {
-      type: 'point' as const,
-      longitude: position.longitude,
-      latitude: position.latitude,
-      spatialReference: { wkid: 4326 },
-    };
-
-    const circleSymbol = this.createCircleSymbol(state);
-    graphic.symbol = circleSymbol;
+  // A point geometry cannot carry a radius; build a Circle polygon so the
+  // fill symbol has an area to render. Always geodesic: with a WGS84 center a
+  // planar Circle would interpret radiusMeters in degrees, and a Web Mercator
+  // center would distort it by 1/cos(lat) — geodesic is the only mode that
+  // honours meters, matching the other providers.
+  private createCircleGeometry(state: CircleState): __esri.Circle {
+    return new Circle({
+      center: new Point({
+        longitude: state.center.longitude,
+        latitude: state.center.latitude,
+        spatialReference: { wkid: 4326 },
+      }),
+      radius: state.radiusMeters,
+      radiusUnit: 'meters',
+      geodesic: true,
+    });
   }
 
   removeCircle(graphic: __esri.Graphic): void {
@@ -79,7 +81,7 @@ export class ArcGISCircleOverlayRenderer implements CircleOverlayRenderer<__esri
 
   private createCircleSymbol(state: CircleState): __esri.SimpleFillSymbol {
     const strokeColor = state.strokeColor ?? '#000000';
-    const strokeWidth = state.strokeWidth ?? 2;
+    const strokeWidth = (state.strokeWidth ?? 2) * CSS_PIXELS_TO_POINTS;
     const fillColor = state.fillColor ?? 'transparent';
     const fill = toArcGISFillStyle(fillColor);
     const stroke = toArcGISFillStyle(strokeColor);

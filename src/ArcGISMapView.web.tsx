@@ -44,6 +44,9 @@ export function ArcGISMapView({
   className,
   style,
   markerTilingOptions,
+  minZoom,
+  maxZoom,
+  restrictBounds,
   onError,
   onMapLoaded,
   onMapClick,
@@ -105,6 +108,9 @@ export function ArcGISMapView({
       markerTilingOptions,
       apiKey: resolvedApiKey,
       useSceneView,
+      minZoom,
+      maxZoom,
+      restrictBounds,
     };
 
     provider

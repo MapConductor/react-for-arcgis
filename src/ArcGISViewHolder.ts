@@ -6,6 +6,7 @@ import {
   type Offset,
 } from '@mapconductor/js-sdk-core';
 import { ZoomAltitudeConverter } from './zoom';
+import Point from '@arcgis/core/geometry/Point';
 
 export class ArcGISViewHolder extends MapViewHolderBase<HTMLElement, __esri.SceneView | __esri.MapView> {
   constructor(
@@ -18,15 +19,18 @@ export class ArcGISViewHolder extends MapViewHolderBase<HTMLElement, __esri.Scen
 
   toScreenOffset(position: GeoPointInterface): Offset | null {
     try {
-      const point = {
-        type: 'point',
+      // Must be a real Point instance: SceneView.toScreen projects via the
+      // point's x/y properties, which a plain {longitude, latitude} literal
+      // lacks — the projection then yields NaN screen coordinates and
+      // overlays (e.g. InfoBubble) fall back to the container's top-left.
+      const point = new Point({
         longitude: position.longitude,
         latitude: position.latitude,
         spatialReference: { wkid: 4326 },
-      };
+      });
 
-      const screenPoint = this.map.toScreen(point as __esri.Point);
-      if (!screenPoint) return null;
+      const screenPoint = this.map.toScreen(point);
+      if (!screenPoint || !Number.isFinite(screenPoint.x) || !Number.isFinite(screenPoint.y)) return null;
 
       return {
         x: screenPoint.x,

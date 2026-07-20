@@ -1,4 +1,6 @@
 import {
+  createInterpolatePoints,
+  createLinearInterpolatePoints,
   PolylineEntity,
   type PolylineAddParams,
   type PolylineChangeParams,
@@ -7,6 +9,7 @@ import {
 } from '@mapconductor/js-sdk-core';
 import { ArcGISViewHolder } from '../ArcGISViewHolder';
 import { toArcGISFillStyle } from '../color';
+import { CSS_PIXELS_TO_POINTS } from '../helpers';
 import Graphic from '@arcgis/core/Graphic';
 
 export class ArcGISPolylineOverlayRenderer implements PolylineOverlayRenderer<__esri.Graphic> {
@@ -17,19 +20,12 @@ export class ArcGISPolylineOverlayRenderer implements PolylineOverlayRenderer<__
 
   createPolyline(entity: PolylineEntity<__esri.Graphic>): __esri.Graphic | null {
     const state = entity.state;
-    const points = state.points;
-    if (!points || points.length < 2) return null;
-
-    const polyline = {
-      type: 'polyline' as const,
-      paths: [points.map(p => [p.longitude, p.latitude])],
-      spatialReference: { wkid: 4326 },
-    };
+    if (state.points.length < 2) return null;
 
     const lineSymbol = this.createLineSymbol(state);
 
     const graphic = new Graphic({
-      geometry: polyline as unknown as __esri.PolylineProperties & { type: 'polyline' },
+      geometry: this.createGeometry(state),
       symbol: lineSymbol,
       attributes: {
         id: state.id,
@@ -42,14 +38,9 @@ export class ArcGISPolylineOverlayRenderer implements PolylineOverlayRenderer<__
 
   updatePolyline(graphic: __esri.Graphic, entity: PolylineEntity<__esri.Graphic>): void {
     const state = entity.state;
-    const points = state.points;
-    if (!points || points.length < 2) return;
+    if (state.points.length < 2) return;
 
-    graphic.geometry = {
-      type: 'polyline' as const,
-      paths: [points.map(p => [p.longitude, p.latitude])],
-      spatialReference: { wkid: 4326 },
-    };
+    graphic.geometry = this.createGeometry(state);
 
     const lineSymbol = this.createLineSymbol(state);
     graphic.symbol = lineSymbol;
@@ -77,8 +68,30 @@ export class ArcGISPolylineOverlayRenderer implements PolylineOverlayRenderer<__
 
   async onPostProcess(): Promise<void> {}
 
+  private createGeometry(state: PolylineState): __esri.PolylineProperties & { type: 'polyline' } {
+    const points = state.geodesic
+      ? createInterpolatePoints(state.points)
+      : createLinearInterpolatePoints(state.points);
+    let previousLongitude = points[0].longitude;
+    const path = points.map((point, index) => {
+      let longitude = point.longitude;
+      if (index > 0) {
+        while (longitude - previousLongitude > 180) longitude -= 360;
+        while (longitude - previousLongitude < -180) longitude += 360;
+      }
+      previousLongitude = longitude;
+      return [longitude, point.latitude];
+    });
+
+    return {
+      type: 'polyline',
+      paths: [path],
+      spatialReference: { wkid: 4326 },
+    };
+  }
+
   private createLineSymbol(state: PolylineState): __esri.SimpleLineSymbol {
-    const width = state.strokeWidth;
+    const width = state.strokeWidth * CSS_PIXELS_TO_POINTS;
     const pattern = 'solid';
     const stroke = toArcGISFillStyle(state.strokeColor);
 

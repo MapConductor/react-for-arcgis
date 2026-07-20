@@ -41,6 +41,8 @@ import { ArcGISRasterLayerController } from './raster/ArcGISRasterLayerControlle
 import { ArcGISViewHolder } from './ArcGISViewHolder';
 import { ArcGISDesign, type ArcGISDesignTypeInterface } from './ArcGISMapDesign';
 import Basemap from '@arcgis/core/Basemap';
+import * as reactiveUtils from '@arcgis/core/core/reactiveUtils';
+import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtils';
 
 export type ArcGISDesignTypeChangeHandler = (value: ArcGISDesignTypeInterface) => void;
 
@@ -101,6 +103,13 @@ export class ArcGISMapViewController
   ) {
     super();
     this.mapDesignType = mapDesignType;
+    this.markerController.onRasterLayerUpdate = async (state) => {
+      if (state) {
+        await this.rasterLayerController.composition([state]);
+      } else {
+        await this.rasterLayerController.clear();
+      }
+    };
     this.setupEventListeners();
   }
 
@@ -179,15 +188,16 @@ export class ArcGISMapViewController
     };
 
     const eventView = view as any;
-    const cameraWatchProperty = view.type === '3d' ? ['camera', 'viewpoint'] : 'viewpoint';
     const handles = [
       eventView.on('click', handleClick),
       eventView.on('layerview-create', () => {
         this.initialized = true;
         this.notifyMapInitialized();
       }),
-      eventView.watch(cameraWatchProperty, handleViewpointChange),
-      eventView.watch('stationary', handleStationaryChange),
+      view.type === '3d'
+        ? reactiveUtils.watch(() => [view.camera, view.viewpoint], handleViewpointChange)
+        : reactiveUtils.watch(() => (view as __esri.MapView).viewpoint, handleViewpointChange),
+      reactiveUtils.watch(() => view.stationary, handleStationaryChange),
     ];
     this.eventCleanup.push(() => handles.forEach((handle) => handle?.remove()));
   }
@@ -217,12 +227,12 @@ export class ArcGISMapViewController
         center: [position.position.longitude, position.position.latitude],
         scale: arcGISZoomToScale(position.zoom, position.position.latitude),
         rotation: position.bearing,
-      }).then(() => true).catch(() => false);
+      }, { animate: false }).then(() => true).catch(() => false);
     }
     const cameraOptions = this.holder.zoomConverter.mapCameraPositionToCameraOptions(position);
     if (!cameraOptions) return Promise.resolve(false);
 
-    return this.holder.map.goTo(cameraOptions).then(() => true).catch(() => false);
+    return this.holder.map.goTo(cameraOptions, { animate: false }).then(() => true).catch(() => false);
   }
 
   async animateCamera(position: MapCameraPosition, options?: CameraOptions): Promise<boolean> {
@@ -302,7 +312,17 @@ export class ArcGISMapViewController
   }
 
   private getVisibleRegion(): VisibleRegion | null {
-    const extent = this.holder.map.extent;
+    const rawExtent = this.holder.map.extent;
+    if (!rawExtent) return null;
+    // view.extent is expressed in the view's own spatial reference (Web
+    // Mercator, wkid 102100, for every basemap this SDK uses) — its
+    // xmin/ymin/xmax/ymax are meters, not WGS84 degrees. Reproject before
+    // treating them as latitude/longitude, or every downstream consumer of
+    // visibleRegion.bounds (e.g. marker clustering's viewport filter) sees
+    // bogus coordinates and treats the whole map as out of view.
+    const extent = rawExtent.spatialReference?.isWebMercator
+      ? (webMercatorUtils.webMercatorToGeographic(rawExtent) as __esri.Extent)
+      : rawExtent;
     if (!extent) return null;
 
     const bounds = createGeoRectBounds();
@@ -337,16 +357,14 @@ export class ArcGISMapViewController
   }
 
   private async handleMarkerClick(event: __esri.ViewClickEvent): Promise<boolean> {
-    const screenPoint = { x: event.x, y: event.y };
-    const position = this.holder.fromScreenOffsetSync(screenPoint);
-    if (!position) return false;
-
-    const marker = this.markerController.find(position);
-    if (marker) {
-      this.markerController.dispatchClick(marker.state);
-      return true;
-    }
-    return false;
+    // Hit-test against rendered icon bounds in screen space; the geo-nearest
+    // lookup (markerController.find) has no distance limit and would claim
+    // every map click once any marker exists.
+    const marker = this.markerController.findAtScreen({ x: event.x, y: event.y }, this.getCameraPosition()?.zoom ?? 0);
+    if (!marker) return false;
+    if (!marker.state.clickable) return false;
+    this.markerController.dispatchClick(marker.state);
+    return true;
   }
 
   private async handleCircleClick(event: __esri.ViewClickEvent, clicked: any): Promise<boolean> {
@@ -535,6 +553,7 @@ export class ArcGISMapViewController
 
   destroy(): void {
     void this.clearOverlays();
+    this.markerController.destroy();
     for (const fn of this.eventCleanup) fn();
     this.eventCleanup.length = 0;
   }

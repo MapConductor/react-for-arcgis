@@ -1,5 +1,10 @@
 import { createGeoPoint, createGeoRectBounds, type GeoPoint, type GeoRectBounds } from '@mapconductor/js-sdk-core';
 
+// MapConductor sizes (marker icons, stroke widths) are CSS pixels, but ArcGIS
+// screen symbol sizes are points rendered at 96 dpi. Without this conversion
+// every size comes out 96 / 72 = 4/3 larger than on the other providers.
+export const CSS_PIXELS_TO_POINTS = 72 / 96;
+
 export function geoPointToPoint(point: GeoPoint): { x: number; y: number; z?: number } {
   return {
     x: point.longitude,

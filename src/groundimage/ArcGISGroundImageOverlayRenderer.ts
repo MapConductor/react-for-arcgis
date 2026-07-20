@@ -5,93 +5,62 @@ import {
   type GroundImageOverlayRenderer,
 } from '@mapconductor/js-sdk-core';
 import { ArcGISViewHolder } from '../ArcGISViewHolder';
-import Graphic from '@arcgis/core/Graphic';
+import ImageElement from '@arcgis/core/layers/support/ImageElement';
+import ExtentAndRotationGeoreference from '@arcgis/core/layers/support/ExtentAndRotationGeoreference';
+import { geoRectToExtent } from '../helpers';
 
-export class ArcGISGroundImageOverlayRenderer implements GroundImageOverlayRenderer<__esri.Graphic> {
+// `picture-fill` symbols on a GraphicsLayer polygon tile a fixed-size
+// pattern in screen points — there is no way to make it stretch a single
+// image across an arbitrary geographic rectangle. `MediaLayer` +
+// `ImageElement` is ArcGIS's dedicated ground-overlay primitive: it
+// georeferences a bitmap to an extent (like Google's GroundOverlay) and
+// exposes a per-element `opacity`.
+export class ArcGISGroundImageOverlayRenderer implements GroundImageOverlayRenderer<__esri.ImageElement> {
   constructor(
     readonly holder: ArcGISViewHolder,
-    private graphicsLayer: __esri.GraphicsLayer,
+    private elements: __esri.Collection<__esri.MediaElement>,
   ) {}
 
-  createGroundImage(entity: GroundImageEntity<__esri.Graphic>): __esri.Graphic | null {
+  createGroundImage(entity: GroundImageEntity<__esri.ImageElement>): __esri.ImageElement | null {
     const state = entity.state;
     const bounds = state.bounds;
     const imageUrl = state.imageUrl;
-    
-    if (!bounds || !bounds.southWest || !bounds.northEast || !imageUrl) return null;
-    const southWest = bounds.southWest;
-    const northEast = bounds.northEast;
 
-    const polygon = {
-      type: 'polygon' as const,
-      rings: [[
-        [southWest.longitude, southWest.latitude],
-        [southWest.longitude, northEast.latitude],
-        [northEast.longitude, northEast.latitude],
-        [northEast.longitude, southWest.latitude],
-        [southWest.longitude, southWest.latitude],
-      ]],
-      spatialReference: { wkid: 4326 },
-    } as __esri.PolygonProperties & { type: 'polygon' };
+    const extent = geoRectToExtent(bounds);
+    if (!extent || !imageUrl) return null;
 
-    const fillSymbol = {
-      type: 'picture-fill' as const,
-      url: imageUrl,
-      width: northEast.longitude - southWest.longitude,
-      height: northEast.latitude - southWest.latitude,
-      outline: {
-        type: 'simple-line' as const,
-        style: 'solid' as const,
-        color: [0, 0, 0, 0],
-        width: 0,
-      },
-    } as __esri.PictureFillSymbolProperties & { type: 'picture-fill' };
-
-    const graphic = new Graphic({
-      geometry: polygon,
-      symbol: fillSymbol,
-      attributes: {
-        id: state.id,
-      },
+    const element = new ImageElement({
+      image: imageUrl,
+      opacity: state.opacity,
+      georeference: new ExtentAndRotationGeoreference({ extent }),
     });
 
-    this.graphicsLayer.add(graphic);
-    return graphic;
+    this.elements.add(element);
+    return element;
   }
 
-  updateGroundImage(graphic: __esri.Graphic, entity: GroundImageEntity<__esri.Graphic>): void {
+  updateGroundImage(element: __esri.ImageElement, entity: GroundImageEntity<__esri.ImageElement>): void {
     const state = entity.state;
     const bounds = state.bounds;
     const imageUrl = state.imageUrl;
-    
-    if (!bounds || !bounds.southWest || !bounds.northEast || !imageUrl) return;
-    const southWest = bounds.southWest;
-    const northEast = bounds.northEast;
 
-    graphic.geometry = {
-      type: 'polygon',
-      rings: [[
-        [southWest.longitude, southWest.latitude],
-        [southWest.longitude, northEast.latitude],
-        [northEast.longitude, northEast.latitude],
-        [northEast.longitude, southWest.latitude],
-        [southWest.longitude, southWest.latitude],
-      ]],
-      spatialReference: { wkid: 4326 },
-    };
+    const extent = geoRectToExtent(bounds);
+    if (!extent || !imageUrl) return;
 
-    (graphic.symbol as __esri.PictureFillSymbol).url = imageUrl;
+    element.image = imageUrl;
+    element.opacity = state.opacity;
+    element.georeference = new ExtentAndRotationGeoreference({ extent });
   }
 
-  removeGroundImage(graphic: __esri.Graphic): void {
-    this.graphicsLayer.remove(graphic);
+  removeGroundImage(element: __esri.ImageElement): void {
+    this.elements.remove(element);
   }
 
-  async onAdd(data: GroundImageAddParams[]): Promise<(Graphic | null)[]> {
-    return data.map(({ state }) => this.createGroundImage({ state } as GroundImageEntity<Graphic>));
+  async onAdd(data: GroundImageAddParams[]): Promise<(__esri.ImageElement | null)[]> {
+    return data.map(({ state }) => this.createGroundImage({ state } as GroundImageEntity<__esri.ImageElement>));
   }
 
-  async onChange(data: GroundImageChangeParams<Graphic>[]): Promise<(Graphic | null)[]> {
+  async onChange(data: GroundImageChangeParams<__esri.ImageElement>[]): Promise<(__esri.ImageElement | null)[]> {
     return data.map(({ current }) => {
       if (!current.groundImage) return this.createGroundImage(current);
       this.updateGroundImage(current.groundImage, current);
@@ -99,7 +68,7 @@ export class ArcGISGroundImageOverlayRenderer implements GroundImageOverlayRende
     });
   }
 
-  async onRemove(data: GroundImageEntity<Graphic>[]): Promise<void> {
+  async onRemove(data: GroundImageEntity<__esri.ImageElement>[]): Promise<void> {
     data.forEach(({ groundImage }) => this.removeGroundImage(groundImage));
   }
 
