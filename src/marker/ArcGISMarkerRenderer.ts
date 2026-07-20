@@ -86,7 +86,7 @@ export class ArcGISMarkerRenderer implements ArcGISMarkerRendererInterface<__esr
     if (entity.marker) entity.marker.visible = visible;
   }
 
-  private createMarkerSymbol(state: MarkerState): __esri.PictureMarkerSymbol {
+  private createMarkerSymbol(state: MarkerState): __esri.Symbol {
     const icon = state.icon?.toBitmapIcon();
     const iconUrl = icon?.url ?? '';
     const anchorU = icon?.anchor.x ?? 0.5;
@@ -95,6 +95,30 @@ export class ArcGISMarkerRenderer implements ArcGISMarkerRendererInterface<__esr
     const width = (icon?.size.width ?? 32) * scale;
     const height = (icon?.size.height ?? 32) * scale;
 
+    // SceneView rejects 2D-only symbols with:
+    //   "2D symbol of type 'picture-marker' is unsupported in 3D"
+    // so 3D views must use PointSymbol3D + IconSymbol3DLayer.
+    if (this.holder.map.type === '3d') {
+      const iconLayer: __esri.IconSymbol3DLayerProperties = {
+        type: 'icon',
+        size: Math.max(width, height),
+        anchor: 'relative',
+        // BitmapIcon.anchor is (0,0)=top-left, (1,1)=bottom-right; IconSymbol3DLayer
+        // anchorPosition is (0,0)=bottom-left, (1,1)=top-right, so flip Y.
+        anchorPosition: { x: anchorU, y: 1 - anchorV },
+      };
+      if (iconUrl) {
+        iconLayer.resource = { href: iconUrl };
+      } else {
+        iconLayer.resource = { primitive: 'circle' };
+        iconLayer.material = { color: 'red' };
+      }
+      return {
+        type: 'point-3d',
+        symbolLayers: [iconLayer],
+      } as unknown as __esri.PointSymbol3D;
+    }
+
     return {
       type: 'picture-marker',
       url: iconUrl,
@@ -102,6 +126,6 @@ export class ArcGISMarkerRenderer implements ArcGISMarkerRendererInterface<__esr
       height,
       xoffset: -width / 2 * (2 * anchorU - 1),
       yoffset: -height * (1 - anchorV),
-    } as __esri.PictureMarkerSymbol;
+    } as unknown as __esri.PictureMarkerSymbol;
   }
 }

@@ -54,12 +54,20 @@ export function arcGISZoomToScale(zoom: number, latitude: number): number {
   // ground-resolution cos(latitude) correction here makes the same logical
   // zoom increasingly magnified toward the poles compared with MapLibre.
   void latitude;
-  const resolution = WEB_MERCATOR_CIRCUMFERENCE_METERS / (TILE_SIZE * 2 ** zoom);
+  // Google Maps 2D (the project-wide reference) snaps zoom to the nearest
+  // integer (9.5 -> 10), while MapView's snapToZoom constraint resolves a
+  // fractional goTo target to the LOD below it (9.5 -> 9), leaving the two
+  // maps a full level apart. Quantize the way Google does so goTo targets are
+  // always exact LOD scales that snapToZoom passes through unchanged.
+  const snappedZoom = Math.round(zoom);
+  const resolution = WEB_MERCATOR_CIRCUMFERENCE_METERS / (TILE_SIZE * 2 ** snappedZoom);
   return resolution * DPI * INCHES_PER_METER;
 }
 
 export function arcGISScaleToZoom(scale: number, latitude: number): number {
-  // Keep this as the exact inverse of arcGISZoomToScale.
+  // Exact inverse of arcGISZoomToScale for the integer zooms it produces;
+  // reports fractional zoom faithfully for in-between scales (e.g. while the
+  // view is animating).
   void latitude;
   const resolution = scale / (DPI * INCHES_PER_METER);
   return Math.log(WEB_MERCATOR_CIRCUMFERENCE_METERS / (TILE_SIZE * resolution)) / Math.log(2);

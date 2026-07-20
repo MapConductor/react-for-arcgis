@@ -120,7 +120,6 @@ declare class ZoomAltitudeConverter extends AbstractZoomAltitudeConverter {
     private readonly viewportSizeProvider;
     static readonly ARCGIS_OPTIMIZED_ZOOM0_ALTITUDE = 136500000;
     static readonly REFERENCE_VIEWPORT_HEIGHT_PX = 720;
-    static readonly SCENE_VIEW_FIELD_OF_VIEW_SCALE = 1.08;
     constructor(zoom0Altitude?: number, viewportSizeProvider?: (() => ZoomAltitudeViewportSize | null) | null);
     private effectiveZoom0Altitude;
     private cosLatitudeFactor;

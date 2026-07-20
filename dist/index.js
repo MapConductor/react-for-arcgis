@@ -147,7 +147,8 @@ var DPI = 96;
 var INCHES_PER_METER = 39.37;
 function arcGISZoomToScale(zoom, latitude) {
   void latitude;
-  const resolution = WEB_MERCATOR_CIRCUMFERENCE_METERS / (TILE_SIZE * 2 ** zoom);
+  const snappedZoom = Math.round(zoom);
+  const resolution = WEB_MERCATOR_CIRCUMFERENCE_METERS / (TILE_SIZE * 2 ** snappedZoom);
   return resolution * DPI * INCHES_PER_METER;
 }
 function arcGISScaleToZoom(scale, latitude) {
@@ -1273,7 +1274,7 @@ var _ZoomAltitudeConverter = class _ZoomAltitudeConverter extends import_js_sdk_
   effectiveZoom0Altitude() {
     const height = this.viewportSizeProvider?.()?.height;
     const viewportScale = height == null || !Number.isFinite(height) || height <= 0 ? 1 : height / _ZoomAltitudeConverter.REFERENCE_VIEWPORT_HEIGHT_PX;
-    return this.zoom0Altitude * _ZoomAltitudeConverter.SCENE_VIEW_FIELD_OF_VIEW_SCALE * viewportScale;
+    return this.zoom0Altitude * viewportScale;
   }
   cosLatitudeFactor(latitude) {
     const clamped = Math.max(-85, Math.min(85, latitude));
@@ -1341,11 +1342,11 @@ var _ZoomAltitudeConverter = class _ZoomAltitudeConverter extends import_js_sdk_
   }
 };
 _ZoomAltitudeConverter.ARCGIS_OPTIMIZED_ZOOM0_ALTITUDE = 1365e5;
+// Reference map view height, calibrated to match a standard modern phone
+// (mirrors Android's REFERENCE_HEIGHT_DP). Google Maps shows geographic
+// range proportional to viewport pixels, so we scale altitude linearly
+// with viewport height to match that behaviour.
 _ZoomAltitudeConverter.REFERENCE_VIEWPORT_HEIGHT_PX = 720;
-// ArcGIS Maps SDK for JavaScript's SceneView has a slightly wider field of
-// view than the native ArcGIS view. Preserve Android's shared zoom base and
-// compensate only for the Web SceneView projection.
-_ZoomAltitudeConverter.SCENE_VIEW_FIELD_OF_VIEW_SCALE = 1.08;
 var ZoomAltitudeConverter = _ZoomAltitudeConverter;
 
 // src/ArcGISMapProvider.ts

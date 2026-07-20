@@ -9,11 +9,11 @@ export interface ZoomAltitudeViewportSize {
 
 export class ZoomAltitudeConverter extends AbstractZoomAltitudeConverter {
     static readonly ARCGIS_OPTIMIZED_ZOOM0_ALTITUDE = 136_500_000.0;
+    // Reference map view height, calibrated to match a standard modern phone
+    // (mirrors Android's REFERENCE_HEIGHT_DP). Google Maps shows geographic
+    // range proportional to viewport pixels, so we scale altitude linearly
+    // with viewport height to match that behaviour.
     static readonly REFERENCE_VIEWPORT_HEIGHT_PX = 720;
-    // ArcGIS Maps SDK for JavaScript's SceneView has a slightly wider field of
-    // view than the native ArcGIS view. Preserve Android's shared zoom base and
-    // compensate only for the Web SceneView projection.
-    static readonly SCENE_VIEW_FIELD_OF_VIEW_SCALE = 1.08;
 
     constructor(
         zoom0Altitude = ZoomAltitudeConverter.ARCGIS_OPTIMIZED_ZOOM0_ALTITUDE,
@@ -27,9 +27,7 @@ export class ZoomAltitudeConverter extends AbstractZoomAltitudeConverter {
         const viewportScale = height == null || !Number.isFinite(height) || height <= 0
             ? 1
             : height / ZoomAltitudeConverter.REFERENCE_VIEWPORT_HEIGHT_PX;
-        return this.zoom0Altitude
-            * ZoomAltitudeConverter.SCENE_VIEW_FIELD_OF_VIEW_SCALE
-            * viewportScale;
+        return this.zoom0Altitude * viewportScale;
     }
 
     private cosLatitudeFactor(latitude: number): number {
