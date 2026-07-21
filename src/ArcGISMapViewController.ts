@@ -1,5 +1,6 @@
 import {
   BaseMapViewController,
+  Earth,
   createGeoPoint,
   createMapCameraPosition,
   type CameraOptions,
@@ -46,7 +47,7 @@ import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtil
 
 export type ArcGISDesignTypeChangeHandler = (value: ArcGISDesignTypeInterface) => void;
 
-const WEB_MERCATOR_CIRCUMFERENCE_METERS = 2 * Math.PI * 6378137;
+const WEB_MERCATOR_CIRCUMFERENCE_METERS = Earth.CIRCUMFERENCE_METERS;
 const TILE_SIZE = 256;
 const DPI = 96;
 const INCHES_PER_METER = 39.37;

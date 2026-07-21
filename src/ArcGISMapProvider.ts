@@ -35,9 +35,9 @@ import MV from '@arcgis/core/views/MapView';
 import esriConfig from '@arcgis/core/config';
 import ElevationLayer from '@arcgis/core/layers/ElevationLayer';
 import * as reactiveUtils from '@arcgis/core/core/reactiveUtils';
-import type { GeoRectBounds } from '@mapconductor/js-sdk-core';
+import { Earth, type GeoRectBounds } from '@mapconductor/js-sdk-core';
 
-const WEB_MERCATOR_RADIUS_METERS = 6378137;
+const WEB_MERCATOR_RADIUS_METERS = Earth.RADIUS_METERS;
 const DPI = 96;
 const INCHES_PER_METER = 39.37;
 

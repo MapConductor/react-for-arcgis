@@ -1,6 +1,8 @@
 import {
+  Earth,
   RasterLayerEntity,
   TileScheme,
+  WEB_MERCATOR_MAX_EXTENT_METERS,
   type MapCameraPosition,
   type RasterLayerAddParams,
   type RasterLayerChangeParams,
@@ -17,8 +19,8 @@ import SpatialReference from '@arcgis/core/geometry/SpatialReference';
 // (z,x,y) grid — without it esri can't resolve the {level}/{row}/{col}
 // template tokens and issues a broken "https://null/..." request.
 const WEB_MERCATOR_WKID = 3857;
-const WEB_MERCATOR_RADIUS_METERS = 6378137;
-const WEB_MERCATOR_MAX = 20037508.3427892;
+const WEB_MERCATOR_RADIUS_METERS = Earth.RADIUS_METERS;
+const WEB_MERCATOR_MAX = WEB_MERCATOR_MAX_EXTENT_METERS;
 const WEB_MERCATOR_MIN = -WEB_MERCATOR_MAX;
 const DEFAULT_DPI = 96;
 const INCHES_PER_METER = 39.37;

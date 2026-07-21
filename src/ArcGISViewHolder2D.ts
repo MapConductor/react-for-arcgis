@@ -35,10 +35,6 @@ export class ArcGISViewHolder2D extends MapViewHolderBase<HTMLDivElement, __esri
     }
   }
 
-  async fromScreenOffset(offset: Offset): Promise<GeoPoint | null> {
-    return this.fromScreenOffsetSync(offset);
-  }
-
   fromScreenOffsetSync(offset: Offset): GeoPoint | null {
     try {
       const screenPoint = {
