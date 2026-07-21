@@ -1,3 +1,5 @@
+English | [日本語](./README.ja.md) | [Español (Latinoamérica)](./README.es-419.md)
+
 # @mapconductor/react-for-arcgis
 
 ArcGIS Maps SDK for JavaScript provider for the MapConductor React SDK. Renders
