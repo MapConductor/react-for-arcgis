@@ -1,4 +1,4 @@
-[English](https://github.com/MapConductor/react-for-arcgis/README.md) | 日本語 | [Español (Latinoamérica)](https://github.com/MapConductor/react-for-arcgis/README.es-419.md)
+[English](https://github.com/MapConductor/react-for-arcgis/blob/main/README.md) | 日本語 | [Español (Latinoamérica)](https://github.com/MapConductor/react-for-arcgis/blob/main/README.es-419.md)
 
 # @mapconductor/react-for-arcgis
 
