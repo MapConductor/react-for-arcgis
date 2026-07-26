@@ -1,4 +1,4 @@
-English | [日本語](./README.ja.md) | [Español (Latinoamérica)](./README.es-419.md)
+English | [日本語](https://github.com/MapConductor/react-for-arcgis/README.ja.md) | [Español (Latinoamérica)](https://github.com/MapConductor/react-for-arcgis/README.es-419.md)
 
 # @mapconductor/react-for-arcgis
 
@@ -28,35 +28,64 @@ npm install @mapconductor/react-for-arcgis @mapconductor/js-sdk-core @mapconduct
 from the [ArcGIS Location Platform](https://location.arcgis.com/); the
 OSM-based designs work without one.
 
-## Quick start
+![](https://raw.githubusercontent.com/mapconductor/react-for-arcgis/docs/images/hello-map.jpg)
+
+## Hello Map tutorial
+
+The simplest possible map app, built with MapConductor + ArcGIS: click the
+marker and a "Hello, MapConductor" bubble pops up. You can build it in the 5
+steps below. It uses the OSM Standard basemap, which needs no API key, so you
+can copy-paste and it just works.
+
+### Step 1: Create a React project
+
+Create a React + TypeScript project with Vite.
+
+```shell
+npm create vite@latest hello-map -- --template react-ts
+cd hello-map
+npm install
+npm run dev
+```
+
+### Step 2: Install MapConductor (ArcGIS)
+
+Install the package needed to show a map. We use ArcGIS here, but you can use
+other map modules too.
+
+```shell
+npm install @mapconductor/react-for-arcgis
+```
+
+- `@mapconductor/react-for-arcgis` — components / hooks for ArcGIS
+- `@mapconductor/js-sdk-react` / `@mapconductor/js-sdk-core` are installed
+  automatically as dependencies.
+
+### Step 3: Show the map
+
+Create the map state with `useArcGISViewState` and render it with
+`<ArcGISMapView2D>`. Give the outer element a height to make it full-screen.
 
 ```tsx
-import { createGeoPoint, createMapCameraPosition } from '@mapconductor/js-sdk-core';
-import { Marker } from '@mapconductor/js-sdk-react';
 import {
   ArcGISDesign,
   ArcGISMapView2D,
   useArcGISViewState,
 } from '@mapconductor/react-for-arcgis';
+import { createGeoPoint, createMapCameraPosition } from '@mapconductor/js-sdk-core';
 
 const TOKYO = createGeoPoint({ latitude: 35.6812, longitude: 139.7671 });
+const INITIAL_CAMERA = createMapCameraPosition({ position: TOKYO, zoom: 14 });
 
-export function App() {
-  const state = useArcGISViewState({
-    apiKey: import.meta.env.VITE_ARCGIS_API_KEY,
-    mapDesignType: ArcGISDesign.Streets,
-    cameraPosition: createMapCameraPosition({ position: TOKYO, zoom: 12 }),
+export default function App() {
+  const mapViewState = useArcGISViewState({
+    mapDesignType: ArcGISDesign.OsmStandard,
+    cameraPosition: INITIAL_CAMERA,
   });
 
   return (
-    <div style={{ width: '100%', height: '100vh' }}>
-      <ArcGISMapView2D
-        state={state}
-        onMapClick={point => console.log('clicked', point.latitude, point.longitude)}
-        onCameraMoveEnd={camera => console.log('zoom', camera.zoom)}
-      >
-        <Marker position={TOKYO} />
-      </ArcGISMapView2D>
+    <div style={{ width: '100vw', height: '100vh' }}>
+      <ArcGISMapView2D state={mapViewState} />
     </div>
   );
 }
@@ -65,13 +94,95 @@ export function App() {
 Use `ArcGISMapView` instead of `ArcGISMapView2D` to render a 3D `SceneView`
 with the same camera semantics.
 
-## Map designs
+### Step 4: Place a marker
 
-`ArcGISDesign` ships basemap presets including `Streets`, `Imagery`,
-`ImageryStandard`, `ImageryLabels`, `LightGray`, `DarkGray`, and
-`OsmStandard`. Switch at runtime by assigning `state.mapDesignType = ...`.
+Create the marker state with `createMarkerState` and register it with
+`<Marker>`. Write overlays as **child elements** of the map component.
+
+```tsx
+import { useMemo } from 'react';
+import { createMarkerState } from '@mapconductor/js-sdk-core';
+import { Marker } from '@mapconductor/js-sdk-react';
+
+// ...inside App...
+const marker = useMemo(
+  () => createMarkerState({ id: 'hello', position: TOKYO }),
+  [],
+);
+
+// ...inside return...
+<ArcGISMapView2D state={mapViewState}>
+  <Marker state={marker} />
+</ArcGISMapView2D>
+```
+
+### Step 5: Show an InfoBubble on click
+
+Track the selected state with `useState`, set it to true in the marker's
+`onClick`, and render `<InfoBubble>` only while selected. This is the finished
+app.
+
+```tsx
+import { useMemo, useState } from 'react';
+import {
+  ArcGISDesign,
+  ArcGISMapView2D,
+  useArcGISViewState,
+} from '@mapconductor/react-for-arcgis';
+import {
+  createGeoPoint,
+  createMapCameraPosition,
+  createMarkerState,
+} from '@mapconductor/js-sdk-core';
+import { InfoBubble, Marker } from '@mapconductor/js-sdk-react';
+
+const TOKYO = createGeoPoint({ latitude: 35.6812, longitude: 139.7671 });
+const INITIAL_CAMERA = createMapCameraPosition({ position: TOKYO, zoom: 14 });
+
+export default function App() {
+  const mapViewState = useArcGISViewState({
+    mapDesignType: ArcGISDesign.OsmStandard,
+    cameraPosition: INITIAL_CAMERA,
+  });
+
+  const [selected, setSelected] = useState(false);
+
+  const marker = useMemo(
+    () => createMarkerState({
+      id: 'hello',
+      position: TOKYO,
+      onClick: () => setSelected(true),
+    }),
+    [],
+  );
+
+  return (
+    <div style={{ width: '100vw', height: '100vh' }}>
+      <ArcGISMapView2D state={mapViewState} onMapClick={() => setSelected(false)}>
+        <Marker state={marker} />
+        {selected && (
+          <InfoBubble marker={marker}>
+            <div style={{ padding: '8px 12px', fontWeight: 600 }}>
+              Hello, MapConductor
+            </div>
+          </InfoBubble>
+        )}
+      </ArcGISMapView2D>
+    </div>
+  );
+}
+```
+
+### Key points
+
+- Coordinates, cameras and markers are created with `js-sdk-core` functions
+  (**provider-independent**).
+- The map component and hooks come from `react-for-arcgis`
+  (**provider-specific**).
+- Write overlays as **child elements** of the map component.
+- Control show / hide with React `useState`.
 
 ## Related packages
 
-- [`@mapconductor/js-sdk-core`](../js-sdk-core) — geometry, camera, and state primitives
-- [`@mapconductor/js-sdk-react`](../js-sdk-react) — shared `Marker`, `Markers`, shapes, and info bubbles
+- [`@mapconductor/js-sdk-core`](https://github.com/mapconductor/js-sdk-core) — geometry, camera, and state primitives
+- [`@mapconductor/js-sdk-react`](https://github.com/mapconductor/js-sdk-react) — shared `Marker`, `Markers`, shapes, and info bubbles
