@@ -11,6 +11,7 @@ import { CSS_PIXELS_TO_POINTS } from '../helpers';
 import Graphic from '@arcgis/core/Graphic';
 import Circle from '@arcgis/core/geometry/Circle';
 import Point from '@arcgis/core/geometry/Point';
+import { geographicToWebMercator } from '@arcgis/core/geometry/support/webMercatorUtils';
 
 export class ArcGISCircleOverlayRenderer implements CircleOverlayRenderer<__esri.Graphic> {
   constructor(
@@ -40,20 +41,33 @@ export class ArcGISCircleOverlayRenderer implements CircleOverlayRenderer<__esri
   }
 
   // A point geometry cannot carry a radius; build a Circle polygon so the
-  // fill symbol has an area to render. Always geodesic: with a WGS84 center a
-  // planar Circle would interpret radiusMeters in degrees, and a Web Mercator
-  // center would distort it by 1/cos(lat) — geodesic is the only mode that
-  // honours meters, matching the other providers.
+  // fill symbol has an area to render. Kept native (Android parity): ArcGIS's
+  // Circle supports both modes, so state.geodesic is passed through instead of
+  // being hardcoded. Geodesic keeps the WGS84 center (meters on the
+  // ellipsoid). Planar needs a genuinely projected center — around a WGS84
+  // center a planar Circle would interpret radiusMeters in degrees — so the
+  // center is projected to Web Mercator and the radius is applied in that
+  // projection's meters, mirroring Android's planar GeometryEngine.buffer in
+  // the map's spatial reference.
   private createCircleGeometry(state: CircleState): __esri.Circle {
+    const center = new Point({
+      longitude: state.center.longitude,
+      latitude: state.center.latitude,
+      spatialReference: { wkid: 4326 },
+    });
+    if (state.geodesic) {
+      return new Circle({
+        center,
+        radius: state.radiusMeters,
+        radiusUnit: 'meters',
+        geodesic: true,
+      });
+    }
     return new Circle({
-      center: new Point({
-        longitude: state.center.longitude,
-        latitude: state.center.latitude,
-        spatialReference: { wkid: 4326 },
-      }),
+      center: (geographicToWebMercator(center) as __esri.Point | null) ?? center,
       radius: state.radiusMeters,
       radiusUnit: 'meters',
-      geodesic: true,
+      geodesic: false,
     });
   }
 

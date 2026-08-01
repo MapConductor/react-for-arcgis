@@ -1,6 +1,5 @@
 import {
-  createInterpolatePoints,
-  createLinearInterpolatePoints,
+  buildUnwrappedPolylinePath,
   PolylineEntity,
   type PolylineAddParams,
   type PolylineChangeParams,
@@ -69,19 +68,10 @@ export class ArcGISPolylineOverlayRenderer implements PolylineOverlayRenderer<__
   async onPostProcess(): Promise<void> {}
 
   private createGeometry(state: PolylineState): __esri.PolylineProperties & { type: 'polyline' } {
-    const points = state.geodesic
-      ? createInterpolatePoints(state.points)
-      : createLinearInterpolatePoints(state.points);
-    let previousLongitude = points[0].longitude;
-    const path = points.map((point, index) => {
-      let longitude = point.longitude;
-      if (index > 0) {
-        while (longitude - previousLongitude > 180) longitude -= 360;
-        while (longitude - previousLongitude < -180) longitude += 360;
-      }
-      previousLongitude = longitude;
-      return [longitude, point.latitude];
-    });
+    // Core pipeline: densification + longitude unwrap (ArcGIS accepts unwrapped
+    // longitudes, keeping antimeridian-crossing segments continuous).
+    const path = buildUnwrappedPolylinePath(state.points, state.geodesic)
+      .map(point => [point.longitude, point.latitude]);
 
     return {
       type: 'polyline',

@@ -1,5 +1,5 @@
 import {
-  createInterpolatePoints,
+  buildUnwrappedPolygonRings,
   unionHoles,
   PolygonEntity,
   type GeoPoint,
@@ -87,20 +87,23 @@ export class ArcGISPolygonOverlayRenderer implements PolygonOverlayRenderer<__es
     this.graphicsLayer.graphics.addMany(sorted);
   }
 
-  // Ported from Android's createGeometry: densify geodesic rings ourselves,
-  // then normalize winding — ArcGIS expects clockwise outer rings and
-  // counter-clockwise holes.
+  // Ported from Android's createGeometry: densify the rings via the shared
+  // core pipeline (great-circle when geodesic, linear lat/lng otherwise —
+  // Android's straight-line semantics; longitudes unwrapped into the outer
+  // ring's world copy, which ArcGIS accepts), then normalize winding — ArcGIS
+  // expects clockwise outer rings and counter-clockwise holes.
   private createGeometry(state: PolygonState): __esri.PolygonProperties & { type: 'polygon' } {
     const resolved = state.holes.length > 1 ? unionHoles(state) : state;
 
-    const toRing = (points: GeoPoint[]): GeoPoint[] =>
-      resolved.geodesic
-        ? createInterpolatePoints(points, GEODESIC_MAX_SEGMENT_LENGTH_METERS)
-        : points;
-
-    const outer = ensureClockwise(openRing(toRing(resolved.points)));
-    const holes = resolved.holes
-      .map(ring => ensureCounterClockwise(openRing(toRing(ring))))
+    const { outerRings, holeRings } = buildUnwrappedPolygonRings(
+      openRing(resolved.points),
+      resolved.holes.map(openRing),
+      resolved.geodesic,
+      GEODESIC_MAX_SEGMENT_LENGTH_METERS,
+    );
+    const outer = ensureClockwise(outerRings[0] ?? []);
+    const holes = holeRings
+      .map(ring => ensureCounterClockwise(ring))
       .filter(ring => ring.length >= 3);
 
     return {
