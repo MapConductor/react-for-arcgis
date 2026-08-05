@@ -6,6 +6,7 @@ import {
   type GeoPoint,
   type MapCameraPosition,
   type MapViewControllerInterface,
+  type GeoRectBounds,
   type MapViewHolder,
   type MapViewStateInterface,
 } from '@mapconductor/js-sdk-core';
@@ -83,6 +84,10 @@ export class ArcGISMapViewState extends MapViewState<ArcGISDesignTypeInterface>
 
   override getMapViewHolder(): MapViewHolder<unknown, unknown> | null {
     return this.controller?.holder ?? null;
+  }
+
+  override fitBounds(bounds: GeoRectBounds, padding: number = 0): void {
+    void this.controller?.fitBounds(bounds, { padding });
   }
 
   override setController(controller: MapViewControllerInterface | null): void {

@@ -36,7 +36,7 @@ export class ArcGISViewHolder extends MapViewHolderBase<HTMLElement, __esri.Scen
         x: screenPoint.x,
         y: screenPoint.y,
       };
-    } catch (e) {
+    } catch {
       return null;
     }
   }
@@ -56,7 +56,7 @@ export class ArcGISViewHolder extends MapViewHolderBase<HTMLElement, __esri.Scen
         longitude: point.longitude ?? 0,
         altitude: point.z ?? undefined,
       });
-    } catch (e) {
+    } catch {
       return null;
     }
   }

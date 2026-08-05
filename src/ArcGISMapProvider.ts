@@ -195,9 +195,13 @@ export class ArcGISMapProvider extends MapProvider {
           rotation: config.initCameraPosition?.bearing,
           // Same "omit rather than pass undefined" rule as SceneView's
           // altitude constraints above.
-          ...(config.minZoom !== undefined || config.maxZoom !== undefined || config.restrictBounds
-            ? {
-                constraints: {
+          constraints: {
+            // snapToZoom:false lets fitBounds apply a fractional scale so the
+            // bounds fit the padded viewport precisely. Normal camera moves
+            // still request exact integer-LOD scales (arcGISZoomToScale snaps
+            // by default), so they stay aligned with the Google Maps 2D
+            // reference; only continuous wheel-zoom is affected.
+            snapToZoom: false,
                   // Confirmed empirically: ArcGIS's minScale/maxScale are
                   // lower/upper BOUNDS ON THE SCALE NUMBER itself (not
                   // "min/max zoom" by name) — minScale is the largest
@@ -220,9 +224,7 @@ export class ArcGISMapProvider extends MapProvider {
                         return extent ? { geometry: { ...extent, type: 'extent' as const } } : {};
                       })()
                     : {}),
-                },
-              }
-            : {}),
+          },
         });
 
     Object.assign(container.style, { width: '100%', height: '100%', display: 'block' });

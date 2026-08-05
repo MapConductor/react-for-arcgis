@@ -99,10 +99,7 @@ export class ArcGISMarkerController extends AbstractArcGISController<__esri.Grap
 
     this.tileRouteId ??= `mc-arcgis-tile-${generateId()}`;
     const server = LocalTileServer.startServer();
-    const renderer = new MarkerTileRenderer(tiledStates, {
-      tileSize: 256,
-      iconScaleCallback: this.tilingOptions.iconScaleCallback ?? undefined,
-    });
+    const renderer = new MarkerTileRenderer(tiledStates, 256, this.tilingOptions.iconScaleCallback ?? undefined);
     this.tileRenderer = renderer;
     this.tileVersion++;
     server.register(this.tileRouteId, renderer);

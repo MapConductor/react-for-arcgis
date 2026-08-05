@@ -127,14 +127,25 @@ export class ZoomAltitudeConverter extends AbstractZoomAltitudeConverter {
         return Math.min(Math.max(zoomLevel, AbstractZoomAltitudeConverter.MIN_ZOOM_LEVEL), AbstractZoomAltitudeConverter.MAX_ZOOM_LEVEL);
     }
 
-    mapCameraPositionToCameraOptions(cameraPosition: MapCameraPosition | null): __esri.CameraProperties | null {
+    mapCameraPositionToCameraOptions(
+        cameraPosition: MapCameraPosition | null,
+        { snapZoom = true }: { snapZoom?: boolean } = {},
+    ): __esri.CameraProperties | null {
         if (!cameraPosition) {
             return null;
         }
         const { position, zoom, bearing, tilt } = cameraPosition;
 
-        const distance = this.zoomLevelToDistance({ zoomLevel: snapZoomToGoogle(zoom), latitude: position.latitude });
-        const altitude = distance * Math.cos(degToRad(tilt));
+        // 他プロバイダ（mapbox / maplibre / cesium）と同じく tilt は絶対値で扱う。
+        // ArcGIS の SceneView Camera.tilt は 0-180 で、負の tilt を渡すと heading が
+        // 180° 反転してしまうため、abs して [0, 90] にクランプする（tilt は上下対称）。
+        const tiltAbs = Math.max(0, Math.min(90, Math.abs(tilt)));
+
+        // fitBounds passes snapZoom:false so its fractional fit zoom is honored
+        // (rounding would break the fit and neutralize `padding`).
+        const effectiveZoom = snapZoom ? snapZoomToGoogle(zoom) : zoom;
+        const distance = this.zoomLevelToDistance({ zoomLevel: effectiveZoom, latitude: position.latitude });
+        const altitude = distance * Math.cos(degToRad(tiltAbs));
 
         return {
             position: {
@@ -143,7 +154,7 @@ export class ZoomAltitudeConverter extends AbstractZoomAltitudeConverter {
                 z: altitude,
             },
             heading: bearing,
-            tilt: tilt,
+            tilt: tiltAbs,
         };
     }
 }

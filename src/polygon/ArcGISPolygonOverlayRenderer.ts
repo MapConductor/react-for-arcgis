@@ -92,12 +92,18 @@ export class ArcGISPolygonOverlayRenderer implements PolygonOverlayRenderer<__es
   // Android's straight-line semantics; longitudes unwrapped into the outer
   // ring's world copy, which ArcGIS accepts), then normalize winding — ArcGIS
   // expects clockwise outer rings and counter-clockwise holes.
+  //
+  // The ring must be CLOSED (first point == last) before densification, so the
+  // closing edge (last vertex → first vertex) is interpolated too. Android does
+  // this by densifying first and opening afterwards (openRing(toRing(points)));
+  // opening before densifying — as an earlier port did — drops the closing
+  // vertex, leaving that edge a single straight chord instead of a geodesic arc.
   private createGeometry(state: PolygonState): __esri.PolygonProperties & { type: 'polygon' } {
     const resolved = state.holes.length > 1 ? unionHoles(state) : state;
 
     const { outerRings, holeRings } = buildUnwrappedPolygonRings(
-      openRing(resolved.points),
-      resolved.holes.map(openRing),
+      closeRing(resolved.points),
+      resolved.holes.map(closeRing),
       resolved.geodesic,
       GEODESIC_MAX_SEGMENT_LENGTH_METERS,
     );
@@ -137,13 +143,16 @@ export class ArcGISPolygonOverlayRenderer implements PolygonOverlayRenderer<__es
   }
 }
 
-function openRing(points: GeoPoint[]): GeoPoint[] {
+// Ensure the ring is explicitly closed (first point == last) so the shared
+// densification pipeline interpolates the closing edge as well. A ring that is
+// already closed is returned unchanged.
+function closeRing(points: GeoPoint[]): GeoPoint[] {
   if (points.length < 2) return points;
   const first = points[0];
   const last = points[points.length - 1];
   return first.latitude === last.latitude && first.longitude === last.longitude
-    ? points.slice(0, -1)
-    : points;
+    ? points
+    : [...points, first];
 }
 
 function signedAreaLonLat(ring: GeoPoint[]): number {

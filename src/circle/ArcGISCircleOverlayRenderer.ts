@@ -9,8 +9,8 @@ import { ArcGISViewHolder } from '../ArcGISViewHolder';
 import { toArcGISFillStyle } from '../color';
 import { CSS_PIXELS_TO_POINTS } from '../helpers';
 import Graphic from '@arcgis/core/Graphic';
-import Circle from '@arcgis/core/geometry/Circle';
 import Point from '@arcgis/core/geometry/Point';
+import * as geometryEngine from '@arcgis/core/geometry/geometryEngine';
 import { geographicToWebMercator } from '@arcgis/core/geometry/support/webMercatorUtils';
 
 export class ArcGISCircleOverlayRenderer implements CircleOverlayRenderer<__esri.Graphic> {
@@ -40,35 +40,30 @@ export class ArcGISCircleOverlayRenderer implements CircleOverlayRenderer<__esri
     graphic.symbol = this.createCircleSymbol(state);
   }
 
-  // A point geometry cannot carry a radius; build a Circle polygon so the
-  // fill symbol has an area to render. Kept native (Android parity): ArcGIS's
-  // Circle supports both modes, so state.geodesic is passed through instead of
-  // being hardcoded. Geodesic keeps the WGS84 center (meters on the
-  // ellipsoid). Planar needs a genuinely projected center — around a WGS84
-  // center a planar Circle would interpret radiusMeters in degrees — so the
-  // center is projected to Web Mercator and the radius is applied in that
-  // projection's meters, mirroring Android's planar GeometryEngine.buffer in
-  // the map's spatial reference.
-  private createCircleGeometry(state: CircleState): __esri.Circle {
+  // A point geometry cannot carry a radius; build a buffer polygon so the fill
+  // symbol has an area to render. Uses GeometryEngine.geodesicBuffer / buffer
+  // (Android parity: GeometryEngine.bufferGeodetic / buffer) rather than the
+  // Circle convenience class. The Circle class emits a raw ring that ArcGIS does
+  // not normalize across the antimeridian, so a large circle whose ring crosses
+  // ±180° (e.g. an Oahu-centered circle extending west past 180°) has its
+  // western half dropped. geodesicBuffer returns a properly normalized polygon
+  // (split at the antimeridian when needed), so the whole ring renders.
+  // Geodesic keeps the WGS84 center (meters on the ellipsoid). Planar needs a
+  // genuinely projected center — around a WGS84 center a planar buffer would
+  // interpret radiusMeters in degrees — so the center is projected to Web
+  // Mercator and the radius is applied in that projection's meters, mirroring
+  // Android's planar GeometryEngine.buffer in the map's spatial reference.
+  private createCircleGeometry(state: CircleState): __esri.Polygon | null {
     const center = new Point({
       longitude: state.center.longitude,
       latitude: state.center.latitude,
       spatialReference: { wkid: 4326 },
     });
     if (state.geodesic) {
-      return new Circle({
-        center,
-        radius: state.radiusMeters,
-        radiusUnit: 'meters',
-        geodesic: true,
-      });
+      return geometryEngine.geodesicBuffer(center, state.radiusMeters, 'meters') as __esri.Polygon | null;
     }
-    return new Circle({
-      center: (geographicToWebMercator(center) as __esri.Point | null) ?? center,
-      radius: state.radiusMeters,
-      radiusUnit: 'meters',
-      geodesic: false,
-    });
+    const projected = (geographicToWebMercator(center) as __esri.Point | null) ?? center;
+    return geometryEngine.buffer(projected, state.radiusMeters, 'meters') as __esri.Polygon | null;
   }
 
   removeCircle(graphic: __esri.Graphic): void {

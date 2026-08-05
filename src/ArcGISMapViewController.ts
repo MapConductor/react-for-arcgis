@@ -1,11 +1,16 @@
 import {
   BaseMapViewController,
+  DefaultMapUISettings,
+  MapUISettingsDiagnostics,
+  type MapUISettings,
   Earth,
+  computeFitBoundsCameraPosition,
   createGeoPoint,
   createMapCameraPosition,
   type CameraOptions,
   type CircleCapable,
   type CircleState,
+  type GeoPoint,
   type GeoRectBounds,
   type GroundImageCapable,
   type GroundImageState,
@@ -52,7 +57,7 @@ const TILE_SIZE = 256;
 const DPI = 96;
 const INCHES_PER_METER = 39.37;
 
-export function arcGISZoomToScale(zoom: number, latitude: number): number {
+export function arcGISZoomToScale(zoom: number, latitude: number, snapZoom = true): number {
   // ArcGIS JS MapView.scale is a Web Mercator display scale. Applying a
   // ground-resolution cos(latitude) correction here makes the same logical
   // zoom increasingly magnified toward the poles compared with MapLibre.
@@ -62,8 +67,15 @@ export function arcGISZoomToScale(zoom: number, latitude: number): number {
   // fractional goTo target to the LOD below it (9.5 -> 9), leaving the two
   // maps a full level apart. Quantize the way Google does so goTo targets are
   // always exact LOD scales that snapToZoom passes through unchanged.
-  const snappedZoom = Math.round(zoom);
-  const resolution = WEB_MERCATOR_CIRCUMFERENCE_METERS / (TILE_SIZE * 2 ** snappedZoom);
+  //
+  // fitBounds passes snapZoom:false to keep its fractional fit zoom — rounding
+  // it would break the fit and make `padding` have no visible effect. For that
+  // fractional scale to survive, the MapView is created with
+  // `constraints.snapToZoom = false` (see ArcGISMapProvider); normal moves still
+  // pass snapZoom:true here, so they land on exact LOD scales and stay
+  // Google-aligned.
+  const effectiveZoom = snapZoom ? Math.round(zoom) : zoom;
+  const resolution = WEB_MERCATOR_CIRCUMFERENCE_METERS / (TILE_SIZE * 2 ** effectiveZoom);
   return resolution * DPI * INCHES_PER_METER;
 }
 
@@ -116,6 +128,44 @@ export class ArcGISMapViewController
 
   getMap(): __esri.SceneView | __esri.MapView {
     return this.holder.map;
+  }
+
+  private uiSettings: MapUISettings = { ...DefaultMapUISettings };
+  private gestureGuardsInstalled = false;
+
+  /**
+   * ArcGIS routes navigation through `navigation.actionMap`, which says what
+   * each drag button does, plus a few view-level properties. Double-click zoom
+   * has no property, so it is stopped at the event instead — the handler is
+   * installed once and reads the current flags.
+   *
+   * A 3D view tilts with the same drag that rotates, and a 2D view has no tilt
+   * at all, so `tiltGesture` cannot be honoured on its own.
+   */
+  applyUISettings(settings: MapUISettings): void {
+    this.uiSettings = settings;
+    const view = this.holder.map;
+
+    view.navigation.browserTouchPanEnabled = settings.scrollGesture;
+    view.navigation.actionMap.dragPrimary = settings.scrollGesture ? 'pan' : 'none';
+    view.navigation.actionMap.dragSecondary = settings.rotateGesture ? 'rotate' : 'none';
+    view.navigation.actionMap.dragTertiary = settings.rotateGesture ? 'rotate' : 'none';
+    view.navigation.actionMap.mouseWheel = settings.zoomGesture ? 'zoom' : 'none';
+    if (view.type === '2d') view.constraints.rotationEnabled = settings.rotateGesture;
+
+    if (!this.gestureGuardsInstalled) {
+      this.gestureGuardsInstalled = true;
+      view.on('double-click', (event: __esri.ViewDoubleClickEvent) => {
+        if (!this.uiSettings.zoomGesture) event.stopPropagation();
+      });
+    }
+
+    MapUISettingsDiagnostics.warnIfRequested(
+      settings.tiltGesture, 'tilt', 'ArcGIS',
+      view.type === '2d'
+        ? 'a 2D MapView is always overhead and has no tilt gesture'
+        : 'one drag changes heading and tilt together, so tilt follows rotateGesture',
+    );
   }
 
   setMapDesignType(value: ArcGISDesignTypeInterface): void {
@@ -188,7 +238,7 @@ export class ArcGISMapViewController
       this.notifyMapClick(point);
     };
 
-    const eventView = view as any;
+    const eventView = view as __esri.MapView;
     const handles = [
       eventView.on('click', handleClick),
       eventView.on('layerview-create', () => {
@@ -223,48 +273,55 @@ export class ArcGISMapViewController
   }
 
   moveCamera(position: MapCameraPosition): Promise<boolean> {
-    if (this.holder.map.type === '2d') {
-      return this.holder.map.goTo({
-        center: [position.position.longitude, position.position.latitude],
-        scale: arcGISZoomToScale(position.zoom, position.position.latitude),
-        rotation: position.bearing,
-      }, { animate: false }).then(() => true).catch(() => false);
-    }
-    const cameraOptions = this.holder.zoomConverter.mapCameraPositionToCameraOptions(position);
-    if (!cameraOptions) return Promise.resolve(false);
-
-    return this.holder.map.goTo(cameraOptions, { animate: false }).then(() => true).catch(() => false);
+    return this.applyCamera(position, { animated: false });
   }
 
   async animateCamera(position: MapCameraPosition, options?: CameraOptions): Promise<boolean> {
-    if (this.holder.map.type === '2d') {
-      const duration = options?.duration ?? 1000;
-      return this.holder.map.goTo({
-        center: [position.position.longitude, position.position.latitude],
-        scale: arcGISZoomToScale(position.zoom, position.position.latitude),
-        rotation: position.bearing,
-      }, { duration }).then(() => true).catch(() => false);
-    }
-    const cameraOptions = this.holder.zoomConverter.mapCameraPositionToCameraOptions(position);
-    if (!cameraOptions) return Promise.resolve(false);
-
-    const duration = options?.duration ?? 1000;
-    return this.holder.map.goTo(cameraOptions, { duration, speedFactor: 1 }).then(() => true).catch(() => false);
+    return this.applyCamera(position, { animated: true, duration: options?.duration });
   }
 
-  async fitBounds(bounds: GeoRectBounds, options?: CameraOptions): Promise<boolean> {
+  /**
+   * Shared camera commit. `snapZoom` defaults to true so explicit camera targets
+   * quantize their zoom to match the Google Maps 2D reference; fitBounds passes
+   * false to keep its fractional fit zoom so `padding` is honored.
+   */
+  private applyCamera(
+    position: MapCameraPosition,
+    { animated, duration, snapZoom = true }: { animated: boolean; duration?: number; snapZoom?: boolean },
+  ): Promise<boolean> {
+    if (this.holder.map.type === '2d') {
+      const goToOptions = animated ? { duration: duration ?? 1000 } : { animate: false };
+      return this.holder.map.goTo({
+        center: [position.position.longitude, position.position.latitude],
+        scale: arcGISZoomToScale(position.zoom, position.position.latitude, snapZoom),
+        rotation: position.bearing,
+      }, goToOptions).then(() => true).catch(() => false);
+    }
+    const cameraOptions = this.holder.zoomConverter.mapCameraPositionToCameraOptions(position, { snapZoom });
+    if (!cameraOptions) return Promise.resolve(false);
+
+    const goToOptions = animated ? { duration: duration ?? 1000, speedFactor: 1 } : { animate: false };
+    return this.holder.map.goTo(cameraOptions, goToOptions).then(() => true).catch(() => false);
+  }
+
+  // Unified fit: the core computes center + zoom; moveCamera keeps the current
+  // rotation/tilt (ArcGIS goTo to an extent frames it north-up).
+  fitBounds(bounds: GeoRectBounds, options?: CameraOptions): Promise<boolean> {
     if (!bounds.southWest || !bounds.northEast) return Promise.resolve(false);
-
-    const extent = {
-      xmin: bounds.southWest.longitude,
-      ymin: bounds.southWest.latitude,
-      xmax: bounds.northEast.longitude,
-      ymax: bounds.northEast.latitude,
-      spatialReference: { wkid: 4326 },
-    };
-
-    const padding = options?.padding ?? 64;
-    return this.holder.map.goTo(extent, { padding } as any).then(() => true).catch(() => false);
+    const view = this.holder.map;
+    const current = this.getCameraPosition();
+    if (!current) return Promise.resolve(false);
+    const fit = computeFitBoundsCameraPosition({
+      bounds,
+      viewportWidthPx: view.width,
+      viewportHeightPx: view.height,
+      padding: typeof options?.padding === 'number' ? options.padding : 0,
+      bearing: current.bearing,
+    });
+    if (!fit) return Promise.resolve(false);
+    const target = current.copy({ position: fit.center, zoom: fit.zoom });
+    // snapZoom:false — keep the fractional fit zoom so `padding` is honored.
+    return this.applyCamera(target, { animated: !!options?.duration, duration: options?.duration, snapZoom: false });
   }
 
   getCameraPosition(): MapCameraPosition | null {
@@ -368,7 +425,7 @@ export class ArcGISMapViewController
     return true;
   }
 
-  private async handleCircleClick(event: __esri.ViewClickEvent, clicked: any): Promise<boolean> {
+  private async handleCircleClick(event: __esri.ViewClickEvent, clicked: GeoPoint): Promise<boolean> {
     const screenPoint = { x: event.x, y: event.y };
     const position = this.holder.fromScreenOffsetSync(screenPoint);
     if (!position) return false;
@@ -382,7 +439,7 @@ export class ArcGISMapViewController
     return false;
   }
 
-  private async handlePolygonClick(event: __esri.ViewClickEvent, clicked: any): Promise<boolean> {
+  private async handlePolygonClick(event: __esri.ViewClickEvent, clicked: GeoPoint): Promise<boolean> {
     const screenPoint = { x: event.x, y: event.y };
     const position = this.holder.fromScreenOffsetSync(screenPoint);
     if (!position) return false;
@@ -413,7 +470,7 @@ export class ArcGISMapViewController
     return false;
   }
 
-  private async handleGroundImageClick(event: __esri.ViewClickEvent, clicked: any): Promise<boolean> {
+  private async handleGroundImageClick(event: __esri.ViewClickEvent, clicked: GeoPoint): Promise<boolean> {
     const screenPoint = { x: event.x, y: event.y };
     const position = this.holder.fromScreenOffsetSync(screenPoint);
     if (!position) return false;

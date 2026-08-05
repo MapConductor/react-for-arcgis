@@ -30,7 +30,7 @@ export class ArcGISViewHolder2D extends MapViewHolderBase<HTMLDivElement, __esri
         x: screenPoint.x,
         y: screenPoint.y,
       };
-    } catch (e) {
+    } catch {
       return null;
     }
   }
@@ -50,7 +50,7 @@ export class ArcGISViewHolder2D extends MapViewHolderBase<HTMLDivElement, __esri
         longitude: point.longitude ?? 0,
         altitude: point.z ?? undefined,
       });
-    } catch (e) {
+    } catch {
       return null;
     }
   }
