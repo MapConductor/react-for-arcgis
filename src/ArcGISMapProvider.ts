@@ -348,7 +348,7 @@ export class ArcGISMapProvider extends MapProvider {
       const recover = () => {
         if (recovering) return;
         recovering = true;
-        controller.fitBounds(bounds, { padding: 0 }).finally(() => {
+        controller.fitBounds(bounds, 0).finally(() => {
           recovering = false;
         });
       };

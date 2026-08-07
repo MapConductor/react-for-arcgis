@@ -1,13 +1,11 @@
 import {
   BaseMapViewController,
-  DefaultMapUISettings,
   MapUISettingsDiagnostics,
-  type MapUISettings,
+  MapUISettings,
   Earth,
   computeFitBoundsCameraPosition,
   createGeoPoint,
   createMapCameraPosition,
-  type CameraOptions,
   type CircleCapable,
   type CircleState,
   type GeoPoint,
@@ -130,7 +128,7 @@ export class ArcGISMapViewController
     return this.holder.map;
   }
 
-  private uiSettings: MapUISettings = { ...DefaultMapUISettings };
+  private uiSettings: MapUISettings = { ...MapUISettings.Default };
   private gestureGuardsInstalled = false;
 
   /**
@@ -276,8 +274,8 @@ export class ArcGISMapViewController
     return this.applyCamera(position, { animated: false });
   }
 
-  async animateCamera(position: MapCameraPosition, options?: CameraOptions): Promise<boolean> {
-    return this.applyCamera(position, { animated: true, duration: options?.duration });
+  async animateCamera(position: MapCameraPosition, durationMillis: number): Promise<boolean> {
+    return this.applyCamera(position, { animated: true, duration: durationMillis });
   }
 
   /**
@@ -306,7 +304,7 @@ export class ArcGISMapViewController
 
   // Unified fit: the core computes center + zoom; moveCamera keeps the current
   // rotation/tilt (ArcGIS goTo to an extent frames it north-up).
-  fitBounds(bounds: GeoRectBounds, options?: CameraOptions): Promise<boolean> {
+  fitBounds(bounds: GeoRectBounds, padding: number): Promise<boolean> {
     if (!bounds.southWest || !bounds.northEast) return Promise.resolve(false);
     const view = this.holder.map;
     const current = this.getCameraPosition();
@@ -315,13 +313,13 @@ export class ArcGISMapViewController
       bounds,
       viewportWidthPx: view.width,
       viewportHeightPx: view.height,
-      padding: typeof options?.padding === 'number' ? options.padding : 0,
+      padding,
       bearing: current.bearing,
     });
     if (!fit) return Promise.resolve(false);
     const target = current.copy({ position: fit.center, zoom: fit.zoom });
     // snapZoom:false — keep the fractional fit zoom so `padding` is honored.
-    return this.applyCamera(target, { animated: !!options?.duration, duration: options?.duration, snapZoom: false });
+    return this.applyCamera(target, { animated: false, snapZoom: false });
   }
 
   getCameraPosition(): MapCameraPosition | null {
@@ -365,9 +363,6 @@ export class ArcGISMapViewController
     });
   }
 
-  getBounds(): GeoRectBounds | null {
-    return this.getVisibleRegion()?.bounds ?? null;
-  }
 
   private getVisibleRegion(): VisibleRegion | null {
     const rawExtent = this.holder.map.extent;

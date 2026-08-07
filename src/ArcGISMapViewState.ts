@@ -76,7 +76,7 @@ export class ArcGISMapViewState extends MapViewState<ArcGISDesignTypeInterface>
     if (!durationMillis || durationMillis === 0) {
       void this.controller.moveCamera(next);
     } else {
-      void this.controller.animateCamera(next, { duration: durationMillis });
+      void this.controller.animateCamera(next, durationMillis);
     }
     this._cameraPosition = next;
     this.cameraPositionChangeListener?.(next);
@@ -87,7 +87,7 @@ export class ArcGISMapViewState extends MapViewState<ArcGISDesignTypeInterface>
   }
 
   override fitBounds(bounds: GeoRectBounds, padding: number = 0): void {
-    void this.controller?.fitBounds(bounds, { padding });
+    void this.controller?.fitBounds(bounds, padding);
   }
 
   override setController(controller: MapViewControllerInterface | null): void {
