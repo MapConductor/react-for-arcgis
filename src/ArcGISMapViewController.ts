@@ -5,10 +5,8 @@ import {
   Earth,
   computeFitBoundsCameraPosition,
   createGeoPoint,
-  createMapCameraPosition,
   type CircleCapable,
   type CircleState,
-  type GeoPoint,
   type GeoRectBounds,
   type GroundImageCapable,
   type GroundImageState,
@@ -29,12 +27,6 @@ import {
   type PolylineState,
   type RasterLayerCapable,
   type RasterLayerState,
-  createGeoRectBounds,
-  type VisibleRegion,
-  type CircleEvent,
-  type PolygonEvent,
-  type PolylineEvent,
-  type GroundImageEvent,
 } from '@mapconductor/js-sdk-core';
 import { ArcGISMarkerController } from './marker/ArcGISMarkerController';
 import { ArcGISCircleOverlayController } from './circle/ArcGISCircleController';
@@ -46,7 +38,19 @@ import { ArcGISViewHolder } from './ArcGISViewHolder';
 import { ArcGISDesign, type ArcGISDesignTypeInterface } from './ArcGISMapDesign';
 import Basemap from '@arcgis/core/Basemap';
 import * as reactiveUtils from '@arcgis/core/core/reactiveUtils';
-import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtils';
+import {
+  applyCamera,
+  readCameraPosition,
+  type CameraDeps,
+} from './ArcGISCameraOps';
+import {
+  handleCircleClick,
+  handleGroundImageClick,
+  handleMarkerClick,
+  handlePolygonClick,
+  handlePolylineClick,
+  type ClickDeps,
+} from './ArcGISClickHandlers';
 
 export type ArcGISDesignTypeChangeHandler = (value: ArcGISDesignTypeInterface) => void;
 
@@ -227,11 +231,11 @@ export class ArcGISMapViewController
         altitude: position.z ?? undefined,
       });
 
-      if (await this.handleMarkerClick(event)) return;
-      if (await this.handleCircleClick(event, point)) return;
-      if (await this.handlePolygonClick(event, point)) return;
-      if (await this.handlePolylineClick(event)) return;
-      if (await this.handleGroundImageClick(event, point)) return;
+      if (await handleMarkerClick(this.clickDeps, event)) return;
+      if (await handleCircleClick(this.clickDeps, event, point)) return;
+      if (await handlePolygonClick(this.clickDeps, event, point)) return;
+      if (await handlePolylineClick(this.clickDeps, event)) return;
+      if (await handleGroundImageClick(this.clickDeps, event, point)) return;
 
       this.notifyMapClick(point);
     };
@@ -270,36 +274,31 @@ export class ArcGISMapViewController
     this.notifyCameraMoveEnd(camera);
   }
 
+  getCameraPosition(): MapCameraPosition | null { return readCameraPosition(this.cameraDeps); }
+
+  private get cameraDeps(): CameraDeps {
+    return { holder: this.holder };
+  }
+
+  /** クリック配送へ渡す依存一式。private を覗かせずに必要なものだけ束ねる。 */
+  private get clickDeps(): ClickDeps {
+    return {
+      holder: this.holder,
+      markerController: this.markerController,
+      circleController: this.circleController,
+      polylineController: this.polylineController,
+      polygonController: this.polygonController,
+      groundImageController: this.groundImageController,
+      getCameraPosition: () => this.getCameraPosition(),
+    };
+  }
+
   moveCamera(position: MapCameraPosition): Promise<boolean> {
-    return this.applyCamera(position, { animated: false });
+    return applyCamera(this.cameraDeps, position, { animated: false });
   }
 
   async animateCamera(position: MapCameraPosition, durationMillis: number): Promise<boolean> {
-    return this.applyCamera(position, { animated: true, duration: durationMillis });
-  }
-
-  /**
-   * Shared camera commit. `snapZoom` defaults to true so explicit camera targets
-   * quantize their zoom to match the Google Maps 2D reference; fitBounds passes
-   * false to keep its fractional fit zoom so `padding` is honored.
-   */
-  private applyCamera(
-    position: MapCameraPosition,
-    { animated, duration, snapZoom = true }: { animated: boolean; duration?: number; snapZoom?: boolean },
-  ): Promise<boolean> {
-    if (this.holder.map.type === '2d') {
-      const goToOptions = animated ? { duration: duration ?? 1000 } : { animate: false };
-      return this.holder.map.goTo({
-        center: [position.position.longitude, position.position.latitude],
-        scale: arcGISZoomToScale(position.zoom, position.position.latitude, snapZoom),
-        rotation: position.bearing,
-      }, goToOptions).then(() => true).catch(() => false);
-    }
-    const cameraOptions = this.holder.zoomConverter.mapCameraPositionToCameraOptions(position, { snapZoom });
-    if (!cameraOptions) return Promise.resolve(false);
-
-    const goToOptions = animated ? { duration: duration ?? 1000, speedFactor: 1 } : { animate: false };
-    return this.holder.map.goTo(cameraOptions, goToOptions).then(() => true).catch(() => false);
+    return applyCamera(this.cameraDeps, position, { animated: true, duration: durationMillis });
   }
 
   // Unified fit: the core computes center + zoom; moveCamera keeps the current
@@ -319,165 +318,16 @@ export class ArcGISMapViewController
     if (!fit) return Promise.resolve(false);
     const target = current.copy({ position: fit.center, zoom: fit.zoom });
     // snapZoom:false — keep the fractional fit zoom so `padding` is honored.
-    return this.applyCamera(target, { animated: false, snapZoom: false });
-  }
-
-  getCameraPosition(): MapCameraPosition | null {
-    if (this.holder.map.type === '2d') {
-      const view = this.holder.map;
-      const center = view.center;
-      if (!center) return null;
-      return createMapCameraPosition({
-        position: createGeoPoint({
-          latitude: center.latitude ?? center.y,
-          longitude: center.longitude ?? center.x,
-        }),
-        zoom: arcGISScaleToZoom(view.scale, center.latitude ?? center.y),
-        bearing: view.rotation,
-        tilt: 0,
-        visibleRegion: this.getVisibleRegion(),
-      });
-    }
-    const camera = (this.holder.map as __esri.SceneView).camera;
-    if (!camera) return null;
-
-    const latitude = camera.position.latitude ?? camera.position.y ?? 0;
-    const longitude = camera.position.longitude ?? camera.position.x ?? 0;
-
-    const zoom = this.holder.zoomConverter.altitudeToZoomLevel({
-      altitude: camera.position.z ?? 0,
-      latitude,
-      tilt: camera.tilt ?? 0,
-    });
-
-    return createMapCameraPosition({
-      position: createGeoPoint({
-        latitude,
-        longitude,
-        altitude: camera.position.z ?? undefined,
-      }),
-      zoom,
-      bearing: camera.heading ?? 0,
-      tilt: camera.tilt ?? 0,
-      visibleRegion: this.getVisibleRegion(),
-    });
+    return applyCamera(this.cameraDeps, target, { animated: false, snapZoom: false });
   }
 
 
-  private getVisibleRegion(): VisibleRegion | null {
-    const rawExtent = this.holder.map.extent;
-    if (!rawExtent) return null;
-    // view.extent is expressed in the view's own spatial reference (Web
-    // Mercator, wkid 102100, for every basemap this SDK uses) — its
-    // xmin/ymin/xmax/ymax are meters, not WGS84 degrees. Reproject before
-    // treating them as latitude/longitude, or every downstream consumer of
-    // visibleRegion.bounds (e.g. marker clustering's viewport filter) sees
-    // bogus coordinates and treats the whole map as out of view.
-    const extent = rawExtent.spatialReference?.isWebMercator
-      ? (webMercatorUtils.webMercatorToGeographic(rawExtent) as __esri.Extent)
-      : rawExtent;
-    if (!extent) return null;
 
-    const bounds = createGeoRectBounds();
-    bounds.extend(createGeoPoint({
-      latitude: extent.ymin,
-      longitude: extent.xmin,
-    }));
-    bounds.extend(createGeoPoint({
-      latitude: extent.ymax,
-      longitude: extent.xmax,
-    }));
 
-    return {
-      bounds,
-      nearLeft: createGeoPoint({
-        latitude: extent.ymin,
-        longitude: extent.xmin,
-      }),
-      nearRight: createGeoPoint({
-        latitude: extent.ymin,
-        longitude: extent.xmax,
-      }),
-      farLeft: createGeoPoint({
-        latitude: extent.ymax,
-        longitude: extent.xmin,
-      }),
-      farRight: createGeoPoint({
-        latitude: extent.ymax,
-        longitude: extent.xmax,
-      }),
-    };
-  }
 
-  private async handleMarkerClick(event: __esri.ViewClickEvent): Promise<boolean> {
-    // Hit-test against rendered icon bounds in screen space; the geo-nearest
-    // lookup (markerController.find) has no distance limit and would claim
-    // every map click once any marker exists.
-    const marker = this.markerController.findAtScreen({ x: event.x, y: event.y }, this.getCameraPosition()?.zoom ?? 0);
-    if (!marker) return false;
-    if (!marker.state.clickable) return false;
-    this.markerController.dispatchClick(marker.state);
-    return true;
-  }
 
-  private async handleCircleClick(event: __esri.ViewClickEvent, clicked: GeoPoint): Promise<boolean> {
-    const screenPoint = { x: event.x, y: event.y };
-    const position = this.holder.fromScreenOffsetSync(screenPoint);
-    if (!position) return false;
 
-    const circle = this.circleController.find(position);
-    if (circle) {
-      const circleEvent: CircleEvent = { state: circle.state, clicked };
-      this.circleController.dispatchClick(circleEvent);
-      return true;
-    }
-    return false;
-  }
 
-  private async handlePolygonClick(event: __esri.ViewClickEvent, clicked: GeoPoint): Promise<boolean> {
-    const screenPoint = { x: event.x, y: event.y };
-    const position = this.holder.fromScreenOffsetSync(screenPoint);
-    if (!position) return false;
-
-    const polygon = this.polygonController.find(position);
-    if (polygon) {
-      const polygonEvent: PolygonEvent = { state: polygon.state, clicked };
-      this.polygonController.dispatchClick(polygonEvent);
-      return true;
-    }
-    return false;
-  }
-
-  private async handlePolylineClick(event: __esri.ViewClickEvent): Promise<boolean> {
-    const screenPoint = { x: event.x, y: event.y };
-    const position = this.holder.fromScreenOffsetSync(screenPoint);
-    if (!position) return false;
-
-    const hitResult = this.polylineController.findWithClosestPoint(position);
-    if (hitResult) {
-      const polylineEvent: PolylineEvent = { 
-        state: hitResult.entity.state, 
-        clicked: hitResult.closestPoint 
-      };
-      this.polylineController.dispatchClick(polylineEvent);
-      return true;
-    }
-    return false;
-  }
-
-  private async handleGroundImageClick(event: __esri.ViewClickEvent, clicked: GeoPoint): Promise<boolean> {
-    const screenPoint = { x: event.x, y: event.y };
-    const position = this.holder.fromScreenOffsetSync(screenPoint);
-    if (!position) return false;
-
-    const groundImage = this.groundImageController.find(position);
-    if (groundImage) {
-      const groundImageEvent: GroundImageEvent = { state: groundImage.state, clicked };
-      this.groundImageController.dispatchClick(groundImageEvent);
-      return true;
-    }
-    return false;
-  }
 
   async compositionMarkers(data: MarkerState[]): Promise<void> {
     await this.markerController.composition(data);
