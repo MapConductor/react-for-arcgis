@@ -102,6 +102,20 @@ export class ArcGISMapViewController
     RasterLayerCapable
 {
   private readonly eventCleanup: (() => void)[] = [];
+
+  /**
+   * 2D で直近に要求した論理 tilt。2D `MapView` はカメラピッチを持てないため、
+   * 負 tilt は中心の前進で表現しており（`ArcGIS2DTiltEmulation`）、読み戻しで元へ
+   * 戻すヒントとして保持する。見た目の傾きの購読にも使う。
+   */
+  private currentLogicalTilt = 0;
+
+  /** 論理 tilt が変わったことをビュー層へ伝える（CSS の rotateX に使う）。 */
+  onVisualTiltChanged: ((tilt: number) => void) | null = null;
+
+  /** 現在の論理 tilt。 */
+  getLogicalTilt(): number { return this.currentLogicalTilt; }
+
   private initialized = false;
   private mapDesignType: ArcGISDesignTypeInterface;
   private mapDesignTypeChangeListener: ArcGISDesignTypeChangeHandler | null = null;
@@ -277,7 +291,18 @@ export class ArcGISMapViewController
   getCameraPosition(): MapCameraPosition | null { return readCameraPosition(this.cameraDeps); }
 
   private get cameraDeps(): CameraDeps {
-    return { holder: this.holder };
+    return {
+      holder: this.holder,
+      logicalTilt: () => this.currentLogicalTilt,
+      setLogicalTilt: (tilt) => {
+        if (this.currentLogicalTilt === tilt) return;
+        this.currentLogicalTilt = tilt;
+        // ビューを傾けると地図の中身は縦に潰れる。マーカーだけは立って見えるよう、
+        // アイコンを先に縦へ引き伸ばす（他のオーバーレイは寝たままでよい）。
+        this.markerController.refreshVerticalStretch(tilt);
+        this.onVisualTiltChanged?.(tilt);
+      },
+    };
   }
 
   /** クリック配送へ渡す依存一式。private を覗かせずに必要なものだけ束ねる。 */

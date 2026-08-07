@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { mapViewStateInternal } from '@mapconductor/js-sdk-core';
 import '@arcgis/core/assets/esri/themes/light/main.css';
+import Attribution from '@arcgis/core/widgets/Attribution';
+import Zoom from '@arcgis/core/widgets/Zoom';
 import {
   MapContext,
   MapViewScope,
@@ -9,6 +12,7 @@ import {
   MarkerAnimationLayer,
   MapAttributionOverlay,
   type InfoBubbleEntry,
+  createMapContextValue,
 } from '@mapconductor/js-sdk-react';
 import {
   useCameraRestriction,
@@ -42,6 +46,16 @@ function ensureArcGISViewRootStyle(): void {
   flex: unset;
   height: 100%;
 }
+/*
+  2D は tilt を「地図コンテナごと CSS で傾ける」方式で表現するため、view.ui の中にある
+  Esri 標準 UI（ズーム・帰属表示）は一緒に潰れ、200% に広げたぶん画面外へも出てしまう。
+  同じウィジェットを変換の外側へ別途マウントしているので、内側の既定 UI は隠す。
+  （view.ui.components = [] / view.ui.remove() は既に生成済みのウィジェットを
+  取り除いてくれないため、CSS で確実に消す。）
+*/
+.mapconductor-arcgis-2d-plane .esri-ui {
+  display: none;
+}
 `;
   document.head.appendChild(style);
 }
@@ -66,6 +80,11 @@ export function ArcGISMapView({
   useSceneView = true,
 }: ArcGISMapViewProps & { useSceneView?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  /** 傾けた平面をクリップする外側コンテナ（可視範囲そのもの）。 */
+  const outerRef = useRef<HTMLDivElement>(null);
+  /** 変換の外側に置く Esri ウィジェットのマウント先（2D のみ使う）。 */
+  const zoomNodeRef = useRef<HTMLDivElement>(null);
+  const attributionNodeRef = useRef<HTMLDivElement>(null);
   const [provider] = useState(() => new ArcGISMapProvider());
   const [scope] = useState(() => new MapViewScope());
   const [controller, setController] = useState<MapViewControllerInterface | null>(null);
@@ -78,6 +97,10 @@ export function ArcGISMapView({
   const [bubbleEntries, setBubbleEntries] = useState<InfoBubbleEntry[]>([]);
   const [animationEntries, setAnimationEntries] = useState<MarkerAnimationOverlayEntry[]>([]);
   const [cameraTick, setCameraTick] = useState(0);
+  // 2D `MapView` はカメラピッチを持てないので、地図コンテナ自体を CSS `rotateX` で傾けて
+  // 遠近を作る（react-for-leaflet / react-for-openlayers と同じ方式）。負 tilt は
+  // `ArcGIS2DTiltEmulation` が中心の前進で表現するので、描画角度は常に絶対値。
+  const [visualTilt, setVisualTilt] = useState(0);
   const [initializationError, setInitializationError] = useState<Error | null>(null);
   const missingApiKey = !state.apiKey?.trim();
 
@@ -129,24 +152,25 @@ export function ArcGISMapView({
       .then((ctrl) => {
         if (cancelled) return;
 
-        state.setController(ctrl);
-        state.setCameraPositionChangeListener(() => {
+        mapViewStateInternal(state).setController(ctrl);
+        mapViewStateInternal(state).setCameraPositionChangeListener(() => {
           setCameraTick(t => t + 1);
         });
         setController(ctrl);
         typedControllerRef.current = ctrl as ArcGISMapViewController;
+        (ctrl as ArcGISMapViewController).onVisualTiltChanged = (tilt) => setVisualTilt(tilt);
 
         ctrl.setCameraMoveStartListener((camera: MapCameraPosition) => {
-          state.updateCameraPosition(camera);
+          mapViewStateInternal(state).updateCameraPosition(camera);
           onCameraMoveStartRef.current?.(camera);
         });
         ctrl.setCameraMoveListener((camera: MapCameraPosition) => {
-          state.updateCameraPosition(camera);
+          mapViewStateInternal(state).updateCameraPosition(camera);
           onCameraMoveRef.current?.(camera);
           setCameraTick(t => t + 1);
         });
         ctrl.setCameraMoveEndListener((camera: MapCameraPosition) => {
-          state.updateCameraPosition(camera);
+          mapViewStateInternal(state).updateCameraPosition(camera);
           onCameraMoveEndRef.current?.(camera);
           setCameraTick(t => t + 1);
         });
@@ -155,7 +179,7 @@ export function ArcGISMapView({
         ctrl.setMapInitializedListener(() => {
           const initialCamera = typedControllerRef.current?.getCameraPosition() ?? null;
           // 地図が出来た時点の実カメラ（visibleRegion 込み）を state へ流し込む。
-          if (initialCamera) state.updateCameraPosition(initialCamera);
+          if (initialCamera) mapViewStateInternal(state).updateCameraPosition(initialCamera);
           setIsLoaded(true);
           onMapLoadedRef.current?.(state);
           setCameraTick(t => t + 1);
@@ -214,8 +238,8 @@ export function ArcGISMapView({
 
     return () => {
       cancelled = true;
-      state.setCameraPositionChangeListener(null);
-      state.setController(null);
+      mapViewStateInternal(state).setCameraPositionChangeListener(null);
+      mapViewStateInternal(state).setController(null);
       typedControllerRef.current = null;
       bridgeUnsubs.current.forEach((unsub) => unsub());
       bridgeUnsubs.current = [];
@@ -236,18 +260,92 @@ export function ArcGISMapView({
   //  MarkerRenderingSupportKey を put するのと同じ位置づけ）。
   useMarkerRenderingSupport(state, scope, controller);
 
+  // 3D（SceneView）はカメラが実際に傾くので変換しない。2D のみ絶対値で傾ける。
+  const tiltPlane = useSceneView ? 0 : Math.min(Math.abs(visualTilt), 60);
+
+  // Esri 標準の UI（ズーム・帰属表示）は `view.ui` = 地図コンテナの中に置かれるため、
+  // そのままだと傾けた平面と一緒に潰れ、200% に広がったぶん画面外へも出てしまう。
+  //
+  // DOM ごと外へ移すと React の再レンダリングでウィジェットが失われるので、`view.ui` は
+  // 空にしたうえで、同じウィジェットを**変換の外側のコンテナへ直接マウント**し直す
+  // （`container` を指定する Esri 公式の使い方）。見た目と挙動はそのままに、傾きの
+  // 影響だけを外せる。帰属表示は Esri の利用条件で必須なので必ず出す。
+  useEffect(() => {
+    const view = typedControllerRef.current?.holder.map;
+    if (!view || view.type !== '2d' || !isReady) return;
+    const zoomNode = zoomNodeRef.current;
+    const attributionNode = attributionNodeRef.current;
+    if (!zoomNode || !attributionNode) return;
+
+    // `view.ui.components` は view の読み込み完了時に既定値へ戻されるため、
+    // 即時と `when()` の両方で空にする（片方だけだと既定のズーム・帰属表示が残り、
+    // 傾けた平面の中で潰れたまま二重に表示される）。
+    const zoom = new Zoom({ view, container: zoomNode });
+    const attribution = new Attribution({ view, container: attributionNode });
+    return () => {
+      zoom.destroy();
+      attribution.destroy();
+    };
+  }, [isReady]);
+
   return (
-    <MapContext.Provider value={{ controller, isReady, isLoaded, state }}>
+    <MapContext.Provider value={createMapContextValue({ controller, isReady, isLoaded, state })}>
       <>
+        {/*
+          回した平面が元のフレームを覆うよう 200%（= 1 / cos(60°)）に広げてから回し、
+          外側のコンテナでクリップする。遠近（CSS `perspective`）は掛けない — 正射影なら
+          回した後の高さが `2 * cos(60°) = 1.0` でちょうど収まる。3D（SceneView）は
+          カメラが実際に傾くので変換しない。
+        */}
         <div
-          ref={containerRef}
+          ref={outerRef}
           className={className}
           style={{
+            position: 'relative',
             width: '100%',
             height: '100%',
+            overflow: 'hidden',
             ...style,
           }}
-        />
+        >
+          <div
+            ref={containerRef}
+            className={useSceneView ? undefined : 'mapconductor-arcgis-2d-plane'}
+            style={
+              tiltPlane
+                ? {
+                    position: 'absolute',
+                    left: '50%',
+                    top: '50%',
+                    width: '200%',
+                    height: '200%',
+                    transform: `translate(-50%, -50%) rotateX(${tiltPlane}deg)`,
+                    transformOrigin: '50% 50%',
+                    transformStyle: 'flat',
+                    willChange: 'transform',
+                    backfaceVisibility: 'hidden',
+                  }
+                : { position: 'absolute', inset: 0 }
+            }
+          />
+          {/*
+            変換の外側に置く Esri ウィジェット（2D のみ）。`view.ui` の既定位置と同じく
+            ズームは左上、帰属表示は下端に置く。3D では `view.ui` の既定 UI をそのまま使う
+            ので、このノードは空のまま。
+          */}
+          {!useSceneView && (
+            <>
+              <div
+                ref={zoomNodeRef}
+                style={{ position: 'absolute', top: 15, left: 15, zIndex: 2 }}
+              />
+              <div
+                ref={attributionNodeRef}
+                style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 2 }}
+              />
+            </>
+          )}
+        </div>
         {(missingApiKey || initializationError) && (
           <div
             role="alert"

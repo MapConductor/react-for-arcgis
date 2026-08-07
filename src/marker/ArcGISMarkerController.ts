@@ -33,9 +33,6 @@ interface ViewDragEventLike {
 export class ArcGISMarkerController extends AbstractArcGISController<__esri.Graphic, ArcGISMarkerRenderer> {
   private dragHandle: { remove(): void } | null = null;
   private dragEntity: MarkerEntity<__esri.Graphic> | null = null;
-  // Pointer-to-anchor offset captured on grab so the marker doesn't jump to
-  // the cursor when picked up by its icon body instead of its anchor point.
-  private dragGrabOffset: Offset | null = null;
   private dragOrigin: Offset | null = null;
   private dragStarted = false;
 
@@ -45,6 +42,22 @@ export class ArcGISMarkerController extends AbstractArcGISController<__esri.Grap
   private tileRouteId: string | null = null;
   private tileVersion = 0;
   private tileGeneration = 0;
+  /**
+   * 2D の tilt 表現が変わったときに、マーカーの縦補正を掛け直す。
+   *
+   * 地図コンテナを CSS `rotateX` で傾けると中身が縦に潰れるので、マーカーだけ先に
+   * 縦へ引き伸ばして立って見えるようにする（他のオーバーレイは寝たままでよい）。
+   */
+  refreshVerticalStretch(tilt: number): void {
+    if (!this.renderer.setVerticalStretchForTilt(tilt)) return;
+    for (const entity of this.markerManager.allEntities()) {
+      const marker = entity.marker;
+      if (!marker) continue;
+      const bitmapIcon = entity.state.icon?.toBitmapIcon() ?? DEFAULT_BITMAP_ICON;
+      this.renderer.rebuildSymbol(marker, bitmapIcon);
+    }
+  }
+
 
   /** Called by ArcGISMapViewController when RasterLayerState changes. */
   onRasterLayerUpdate: ((state: RasterLayerState | null) => Promise<void>) | null = null;
@@ -163,11 +176,7 @@ export class ArcGISMarkerController extends AbstractArcGISController<__esri.Grap
         const entity = this.findDraggableAtScreen(event);
         if (!entity) return;
         event.stopPropagation();
-        const anchorScreen = this.renderer.holder.toScreenOffset(entity.state.position);
         this.dragEntity = entity;
-        this.dragGrabOffset = anchorScreen
-          ? { x: anchorScreen.x - event.x, y: anchorScreen.y - event.y }
-          : { x: 0, y: 0 };
         this.dragOrigin = { x: event.x, y: event.y };
         this.dragStarted = false;
         this.setDraggingState(entity.state, true);
@@ -198,7 +207,6 @@ export class ArcGISMarkerController extends AbstractArcGISController<__esri.Grap
         event.stopPropagation();
         const didDrag = this.dragStarted;
         this.dragEntity = null;
-        this.dragGrabOffset = null;
         this.dragOrigin = null;
         this.dragStarted = false;
         if (didDrag) {
@@ -216,12 +224,13 @@ export class ArcGISMarkerController extends AbstractArcGISController<__esri.Grap
     }
   };
 
+  /**
+   * ドラッグ位置はカーソル座標をそのまま使う（アンカー ＝ カーソル）。
+   * 多くの JS 地図 SDK がこの挙動で、掴んだ瞬間にピンが少し跳ね上がることが
+   * 「今ドラッグしている」という手掛かりになる。3 プラットフォームでこれに統一している。
+   */
   private dragPositionFromEvent(event: ViewDragEventLike): GeoPoint | null {
-    const grab = this.dragGrabOffset ?? { x: 0, y: 0 };
-    return this.renderer.holder.fromScreenOffsetSync({
-      x: event.x + grab.x,
-      y: event.y + grab.y,
-    });
+    return this.renderer.holder.fromScreenOffsetSync({ x: event.x, y: event.y });
   }
 
   private moveMarkerGraphic(entity: MarkerEntity<__esri.Graphic>, position: GeoPoint): void {

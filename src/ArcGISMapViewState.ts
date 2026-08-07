@@ -107,7 +107,7 @@ export class ArcGISMapViewState extends MapViewState<ArcGISDesignTypeInterface>
 export type ArcGISViewState = ArcGISMapViewState;
 export type ArcGISViewStateOptions = ArcGISMapViewStateParams;
 
-export function useArcGISViewState(params: ArcGISMapViewStateParams = {}): ArcGISMapViewState {
+export function useArcGISViewState(params: ArcGISMapViewStateParams = {}): ArcGISMapViewStateInterface {
   const [state] = useState(() => new ArcGISMapViewState(params));
   return state;
 }

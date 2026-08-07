@@ -8,6 +8,7 @@ import {
 import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtils';
 import type { ArcGISViewHolder } from './ArcGISViewHolder';
 import { arcGISScaleToZoom, arcGISZoomToScale } from './ArcGISMapViewController';
+import { restoreLogicalCamera, shiftedCamera } from './ArcGIS2DTiltEmulation';
 
 /**
  * カメラの読み書き。
@@ -19,6 +20,14 @@ import { arcGISScaleToZoom, arcGISZoomToScale } from './ArcGISMapViewController'
  */
 export interface CameraDeps {
   readonly holder: ArcGISViewHolder;
+  /**
+   * 2D で直近に要求した論理 tilt。2D `MapView` はカメラピッチを持てないため、
+   * 負 tilt は中心の前進で表現している（{@link shiftedCamera}）。読み戻しで元の位置・
+   * ズーム・負 tilt へ戻すためのヒントとして使う。
+   */
+  readonly logicalTilt?: () => number;
+  /** 論理 tilt を記録する（`applyCamera` から呼ぶ）。 */
+  readonly setLogicalTilt?: (tilt: number) => void;
 }
 
 /**
@@ -32,10 +41,14 @@ export function applyCamera(
   { animated, duration, snapZoom = true }: { animated: boolean; duration?: number; snapZoom?: boolean },
 ): Promise<boolean> {
   if (deps.holder.map.type === '2d') {
+    deps.setLogicalTilt?.(position.tilt);
+    // 2D はカメラピッチを持てない。負 tilt は地上ターゲットを進行方向へ前進させて表現し、
+    // 見た目の傾きは `ArcGISMapView` の CSS `rotateX` が担当する。
+    const shifted = shiftedCamera(position.position, position.zoom, position.bearing, position.tilt);
     const goToOptions = animated ? { duration: duration ?? 1000 } : { animate: false };
     return deps.holder.map.goTo({
-      center: [position.position.longitude, position.position.latitude],
-      scale: arcGISZoomToScale(position.zoom, position.position.latitude, snapZoom),
+      center: [shifted.center.longitude, shifted.center.latitude],
+      scale: arcGISZoomToScale(shifted.zoom, shifted.center.latitude, snapZoom),
       rotation: position.bearing,
     }, goToOptions).then(() => true).catch(() => false);
   }
@@ -51,14 +64,25 @@ export function readCameraPosition(deps: CameraDeps): MapCameraPosition | null {
     const view = deps.holder.map;
     const center = view.center;
     if (!center) return null;
-    return createMapCameraPosition({
-      position: createGeoPoint({
+    const logicalTilt = deps.logicalTilt?.() ?? 0;
+    // 負 tilt で前進させた中心とズームを巻き戻し、論理 tilt をそのまま返す。
+    const restored = restoreLogicalCamera(
+      createGeoPoint({
         latitude: center.latitude ?? center.y,
         longitude: center.longitude ?? center.x,
       }),
-      zoom: arcGISScaleToZoom(view.scale, center.latitude ?? center.y),
+      arcGISScaleToZoom(view.scale, center.latitude ?? center.y),
+      view.rotation,
+      logicalTilt,
+    );
+    return createMapCameraPosition({
+      position: createGeoPoint({
+        latitude: restored.position.latitude,
+        longitude: restored.position.longitude,
+      }),
+      zoom: restored.zoom,
       bearing: view.rotation,
-      tilt: 0,
+      tilt: logicalTilt,
       visibleRegion: readVisibleRegion(deps),
     });
   }

@@ -10,6 +10,7 @@ import {
 import { ArcGISMarkerRendererInterface } from './ArcGISMarkerRendererInterface';
 import { ArcGISViewHolder } from '../ArcGISViewHolder';
 import { CSS_PIXELS_TO_POINTS } from '../helpers';
+import { markerVerticalStretch } from '../ArcGIS2DTiltEmulation';
 import Graphic from '@arcgis/core/Graphic';
 
 const DEFAULT_BITMAP_ICON = createDefaultIcon().toBitmapIcon();
@@ -110,6 +111,27 @@ export class ArcGISMarkerRenderer
     if (entity.marker) entity.marker.visible = visible;
   }
 
+  /**
+   * 2D で地図コンテナを CSS `rotateX` で傾けているぶん、マーカーだけ先に縦へ引き伸ばして
+   * 潰れを打ち消す倍率（`ArcGIS2DTiltEmulation.markerVerticalStretch`）。3D は常に 1。
+   */
+  private verticalStretch = 1;
+
+  /**
+   * 縦補正の倍率を更新する。変化したら `true`（呼び出し元が既存シンボルを作り直す）。
+   */
+  setVerticalStretchForTilt(tilt: number): boolean {
+    const next = this.holder.map.type === '2d' ? markerVerticalStretch(tilt) : 1;
+    if (next === this.verticalStretch) return false;
+    this.verticalStretch = next;
+    return true;
+  }
+
+  /** 既存マーカーのシンボルを、現在の縦補正で作り直す。 */
+  rebuildSymbol(marker: __esri.Graphic, bitmapIcon: BitmapIcon): void {
+    marker.symbol = this.createMarkerSymbol(bitmapIcon);
+  }
+
   private createMarkerSymbol(bitmapIcon: BitmapIcon): NonNullable<__esri.GraphicProperties['symbol']> {
     const iconUrl = bitmapIcon.url;
     const anchorU = bitmapIcon.anchor.x;
@@ -150,13 +172,16 @@ export class ArcGISMarkerRenderer
       };
     }
 
+    // 傾けたコンテナで縦に潰れるぶんを先に伸ばしておく。アンカーが地面の位置から
+    // ずれないよう `yoffset` も同じ倍率にする。
+    const stretch = this.verticalStretch;
     return {
       type: 'picture-marker',
       url: iconUrl,
       width,
-      height,
+      height: height * stretch,
       xoffset: (0.5 - anchorU) * width,
-      yoffset: (anchorV - 0.5) * height,
+      yoffset: (anchorV - 0.5) * height * stretch,
     };
   }
 }
