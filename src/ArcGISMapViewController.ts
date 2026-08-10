@@ -6,27 +6,17 @@ import {
   computeFitBoundsCameraPosition,
   createGeoPoint,
   type CircleCapable,
-  type CircleState,
   type GeoRectBounds,
   type GroundImageCapable,
-  type GroundImageState,
   type MapCameraPosition,
   type MarkerAnimationOverlayHost,
   type OnMapInitializedHandler,
   type MapViewControllerInterface,
   type MarkerCapable,
-  type MarkerState,
   type OnMarkerEventHandler,
-  type OnCircleEventHandler,
-  type OnGroundImageEventHandler,
-  type OnPolygonEventHandler,
-  type OnPolylineEventHandler,
   type PolygonCapable,
-  type PolygonState,
   type PolylineCapable,
-  type PolylineState,
   type RasterLayerCapable,
-  type RasterLayerState,
 } from '@mapconductor/js-sdk-core';
 import { ArcGISMarkerController } from './marker/ArcGISMarkerController';
 import { ArcGISCircleOverlayController } from './circle/ArcGISCircleController';
@@ -131,6 +121,22 @@ export class ArcGISMapViewController
     mapDesignType: ArcGISDesignTypeInterface = ArcGISDesign.Streets,
   ) {
     super();
+
+    // Capable ファサードの既定実装がここから kind で引く。
+
+    // **登録を忘れると composition が黙って捨てられる。**
+
+    this.registerOverlayController(this.markerController);
+
+    this.registerOverlayController(this.circleController);
+
+    this.registerOverlayController(this.polylineController);
+
+    this.registerOverlayController(this.polygonController);
+
+    this.registerOverlayController(this.groundImageController);
+
+    this.registerOverlayController(this.rasterLayerController);
     this.mapDesignType = mapDesignType;
     this.markerController.onRasterLayerUpdate = async (state) => {
       if (state) {
@@ -346,26 +352,6 @@ export class ArcGISMapViewController
     return applyCamera(this.cameraDeps, target, { animated: false, snapZoom: false });
   }
 
-
-
-
-
-
-
-
-
-  async compositionMarkers(data: MarkerState[]): Promise<void> {
-    await this.markerController.composition(data);
-  }
-
-  async updateMarker(state: MarkerState): Promise<void> {
-    await this.markerController.update(state);
-  }
-
-  hasMarker(state: MarkerState): boolean {
-    return this.markerController.has(state);
-  }
-
   setOnMarkerClickListener(listener: OnMarkerEventHandler | null): void {
     this.markerController.setOnClickListener(listener);
   }
@@ -392,82 +378,6 @@ export class ArcGISMapViewController
 
   setMarkerAnimationOverlayHost(host: MarkerAnimationOverlayHost | null): void {
     this.markerController.setMarkerAnimationOverlayHost(host);
-  }
-
-  setOnCircleClickListener(listener: OnCircleEventHandler | null): void {
-    this.circleController.setOnClickListener(listener);
-  }
-
-  setOnPolylineClickListener(listener: OnPolylineEventHandler | null): void {
-    this.polylineController.setOnClickListener(listener);
-  }
-
-  setOnPolygonClickListener(listener: OnPolygonEventHandler | null): void {
-    this.polygonController.setOnClickListener(listener);
-  }
-
-  setOnGroundImageClickListener(listener: OnGroundImageEventHandler | null): void {
-    this.groundImageController.setOnClickListener(listener);
-  }
-
-  async compositionCircles(data: CircleState[]): Promise<void> {
-    await this.circleController.composition(data);
-  }
-
-  async updateCircle(state: CircleState): Promise<void> {
-    await this.circleController.update(state);
-  }
-
-  hasCircle(state: CircleState): boolean {
-    return this.circleController.has(state);
-  }
-
-  async compositionPolylines(data: PolylineState[]): Promise<void> {
-    await this.polylineController.composition(data);
-  }
-
-  async updatePolyline(state: PolylineState): Promise<void> {
-    await this.polylineController.update(state);
-  }
-
-  hasPolyline(state: PolylineState): boolean {
-    return this.polylineController.has(state);
-  }
-
-  async compositionPolygons(data: PolygonState[]): Promise<void> {
-    await this.polygonController.composition(data);
-  }
-
-  async updatePolygon(state: PolygonState): Promise<void> {
-    await this.polygonController.update(state);
-  }
-
-  hasPolygon(state: PolygonState): boolean {
-    return this.polygonController.has(state);
-  }
-
-  async compositionGroundImages(data: GroundImageState[]): Promise<void> {
-    await this.groundImageController.composition(data);
-  }
-
-  async updateGroundImage(state: GroundImageState): Promise<void> {
-    await this.groundImageController.update(state);
-  }
-
-  hasGroundImage(state: GroundImageState): boolean {
-    return this.groundImageController.has(state);
-  }
-
-  async compositionRasterLayers(data: RasterLayerState[]): Promise<void> {
-    await this.rasterLayerController.composition(data);
-  }
-
-  async updateRasterLayer(state: RasterLayerState): Promise<void> {
-    await this.rasterLayerController.update(state);
-  }
-
-  hasRasterLayer(state: RasterLayerState): boolean {
-    return this.rasterLayerController.has(state);
   }
 
   async clearOverlays(): Promise<void> {

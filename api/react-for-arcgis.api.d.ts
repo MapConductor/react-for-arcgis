@@ -1,4 +1,4 @@
-import { MapConfig, MarkerTilingOptions, GeoRectBounds, MapProvider, MapViewControllerInterface, MarkerOverlayRenderer, MarkerEntity, AbstractZoomAltitudeConverter, MapCameraPosition, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, AbstractMarkerOverlayRenderer, BitmapIcon, AddParams, ChangeParams, AbstractMarkerController, MarkerState, RasterLayerState, CircleOverlayRenderer, CircleEntity, CircleAddParams, CircleChangeParams, CircleController, PolylineOverlayRenderer, PolylineEntity, PolylineAddParams, PolylineChangeParams, PolylineController, PolygonOverlayRenderer, PolygonEntity, PolygonAddParams, PolygonChangeParams, PolygonController, GroundImageOverlayRenderer, GroundImageEntity, GroundImageAddParams, GroundImageChangeParams, GroundImageController, RasterLayerOverlayRenderer, RasterLayerEntity, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, OnMarkerEventHandler, MarkerAnimationOverlayHost, OnCircleEventHandler, OnPolylineEventHandler, OnPolygonEventHandler, OnGroundImageEventHandler, CircleState, PolylineState, PolygonState, GroundImageState, MapViewBaseProps } from '@mapconductor/js-sdk-core';
+import { MapConfig, MarkerTilingOptions, GeoRectBounds, MapProvider, MapViewControllerInterface, MarkerOverlayRenderer, MarkerEntity, AbstractZoomAltitudeConverter, MapCameraPosition, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, AbstractMarkerOverlayRenderer, BitmapIcon, AddParams, ChangeParams, AbstractMarkerController, MarkerState, RasterLayerState, CircleOverlayRenderer, CircleEntity, CircleAddParams, CircleChangeParams, CircleController, PolylineOverlayRenderer, PolylineEntity, PolylineAddParams, PolylineChangeParams, PolylineController, PolygonOverlayRenderer, PolygonEntity, PolygonAddParams, PolygonChangeParams, PolygonController, GroundImageOverlayRenderer, GroundImageEntity, GroundImageAddParams, GroundImageChangeParams, GroundImageController, RasterLayerOverlayRenderer, RasterLayerEntity, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, OnMarkerEventHandler, MarkerAnimationOverlayHost, MapViewBaseProps } from '@mapconductor/js-sdk-core';
 import { ArcGISDesignTypeInterface, ArcGISMapViewStateInterface } from './state.js';
 export { ArcGISDesign, ArcGISDesignType, ArcGISMapViewState, ArcGISMapViewStateParams, ArcGISViewState, ArcGISViewStateOptions, useArcGISViewState } from './state.js';
 import Graphic from '@arcgis/core/Graphic';
@@ -324,9 +324,6 @@ declare class ArcGISMapViewController extends BaseMapViewController implements M
     moveCamera(position: MapCameraPosition): Promise<boolean>;
     animateCamera(position: MapCameraPosition, durationMillis: number): Promise<boolean>;
     fitBounds(bounds: GeoRectBounds, padding: number): Promise<boolean>;
-    compositionMarkers(data: MarkerState[]): Promise<void>;
-    updateMarker(state: MarkerState): Promise<void>;
-    hasMarker(state: MarkerState): boolean;
     setOnMarkerClickListener(listener: OnMarkerEventHandler | null): void;
     setOnMarkerDragStart(listener: OnMarkerEventHandler | null): void;
     setOnMarkerDrag(listener: OnMarkerEventHandler | null): void;
@@ -334,25 +331,6 @@ declare class ArcGISMapViewController extends BaseMapViewController implements M
     setOnMarkerAnimateStart(listener: OnMarkerEventHandler | null): void;
     setOnMarkerAnimateEnd(listener: OnMarkerEventHandler | null): void;
     setMarkerAnimationOverlayHost(host: MarkerAnimationOverlayHost | null): void;
-    setOnCircleClickListener(listener: OnCircleEventHandler | null): void;
-    setOnPolylineClickListener(listener: OnPolylineEventHandler | null): void;
-    setOnPolygonClickListener(listener: OnPolygonEventHandler | null): void;
-    setOnGroundImageClickListener(listener: OnGroundImageEventHandler | null): void;
-    compositionCircles(data: CircleState[]): Promise<void>;
-    updateCircle(state: CircleState): Promise<void>;
-    hasCircle(state: CircleState): boolean;
-    compositionPolylines(data: PolylineState[]): Promise<void>;
-    updatePolyline(state: PolylineState): Promise<void>;
-    hasPolyline(state: PolylineState): boolean;
-    compositionPolygons(data: PolygonState[]): Promise<void>;
-    updatePolygon(state: PolygonState): Promise<void>;
-    hasPolygon(state: PolygonState): boolean;
-    compositionGroundImages(data: GroundImageState[]): Promise<void>;
-    updateGroundImage(state: GroundImageState): Promise<void>;
-    hasGroundImage(state: GroundImageState): boolean;
-    compositionRasterLayers(data: RasterLayerState[]): Promise<void>;
-    updateRasterLayer(state: RasterLayerState): Promise<void>;
-    hasRasterLayer(state: RasterLayerState): boolean;
     clearOverlays(): Promise<void>;
     destroy(): void;
 }
