@@ -1,13 +1,11 @@
-import { useState } from 'react';
+import {
+  useState } from 'react';
 import {
   MapCameraPosition as MapCameraPositionNS,
   MapViewState,
   createRandomId,
-  type GeoPoint,
   type MapCameraPosition,
   type MapViewControllerInterface,
-  type GeoRectBounds,
-  type MapViewHolder,
   type MapViewStateInterface,
 } from '@mapconductor/js-sdk-core';
 import {
@@ -29,12 +27,8 @@ export interface ArcGISMapViewStateParams {
 
 export class ArcGISMapViewState extends MapViewState<ArcGISDesignTypeInterface>
   implements ArcGISMapViewStateInterface {
-  readonly id: string;
   readonly apiKey: string;
-  private _cameraPosition: MapCameraPosition;
   private _mapDesignType: ArcGISDesignTypeInterface;
-  private controller: MapViewControllerInterface | null = null;
-  private cameraPositionChangeListener: ((camera: MapCameraPosition) => void) | null = null;
 
   constructor({
     id = createRandomId(),
@@ -42,15 +36,9 @@ export class ArcGISMapViewState extends MapViewState<ArcGISDesignTypeInterface>
     mapDesignType = ArcGISDesign.Streets,
     cameraPosition = MapCameraPositionNS.Default,
   }: ArcGISMapViewStateParams = {}) {
-    super();
-    this.id = id;
+    super({ id, cameraPosition });
     this.apiKey = apiKey;
     this._mapDesignType = mapDesignType;
-    this._cameraPosition = cameraPosition;
-  }
-
-  override get cameraPosition(): MapCameraPosition {
-    return this._cameraPosition;
   }
 
   override get mapDesignType(): ArcGISDesignTypeInterface {
@@ -59,48 +47,13 @@ export class ArcGISMapViewState extends MapViewState<ArcGISDesignTypeInterface>
 
   override set mapDesignType(value: ArcGISDesignTypeInterface) {
     this._mapDesignType = value;
-    const controller = this.controller as { setMapDesignType?: (design: ArcGISDesignTypeInterface) => void } | null;
+    const controller = this.attachedMapController as { setMapDesignType?: (design: ArcGISDesignTypeInterface) => void } | null;
     controller?.setMapDesignType?.(value);
   }
 
-  override moveCameraTo(position: GeoPoint, durationMillis?: number): void;
-  override moveCameraTo(cameraPosition: MapCameraPosition, durationMillis?: number): void;
-  override moveCameraTo(positionOrCamera: GeoPoint | MapCameraPosition, durationMillis?: number): void {
-    const next = 'zoom' in positionOrCamera
-      ? positionOrCamera
-      : this._cameraPosition.copy({ position: positionOrCamera });
-    if (!this.controller) {
-      this._cameraPosition = next;
-      return;
-    }
-    if (!durationMillis || durationMillis === 0) {
-      void this.controller.moveCamera(next);
-    } else {
-      void this.controller.animateCamera(next, durationMillis);
-    }
-    this._cameraPosition = next;
-    this.cameraPositionChangeListener?.(next);
-  }
-
-  override getMapViewHolder(): MapViewHolder<unknown, unknown> | null {
-    return this.controller?.holder ?? null;
-  }
-
-  override fitBounds(bounds: GeoRectBounds, padding: number = 0): void {
-    void this.controller?.fitBounds(bounds, padding);
-  }
-
+  /** このプロバイダは接続時にカメラを動かさない（ビュー側が別経路で初期位置を当てる）。 */
   override setController(controller: MapViewControllerInterface | null): void {
-    this.controller = controller;
-  }
-
-  override updateCameraPosition(camera: MapCameraPosition): void {
-    this._cameraPosition = camera;
-    this.cameraPositionChangeListener?.(camera);
-  }
-
-  override setCameraPositionChangeListener(listener: ((camera: MapCameraPosition) => void) | null): void {
-    this.cameraPositionChangeListener = listener;
+    this.attachController(controller, false);
   }
 }
 
