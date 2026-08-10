@@ -34,11 +34,7 @@ import {
   type CameraDeps,
 } from './ArcGISCameraOps';
 import {
-  handleCircleClick,
-  handleGroundImageClick,
   handleMarkerClick,
-  handlePolygonClick,
-  handlePolylineClick,
   type ClickDeps,
 } from './ArcGISClickHandlers';
 
@@ -251,13 +247,13 @@ export class ArcGISMapViewController
         altitude: position.z ?? undefined,
       });
 
+      // マーカーだけは画面座標での判定が要る（地理座標の find は距離の上限が無く、
+      // 遠くのマーカーまで拾ってしまう）ので先に見る。
       if (await handleMarkerClick(this.clickDeps, event)) return;
-      if (await handleCircleClick(this.clickDeps, event, point)) return;
-      if (await handlePolygonClick(this.clickDeps, event, point)) return;
-      if (await handlePolylineClick(this.clickDeps, event)) return;
-      if (await handleGroundImageClick(this.clickDeps, event, point)) return;
-
-      this.notifyMapClick(point);
+      // 残りは marker → circle → groundImage → polyline → polygon → map の一本道。
+      // 順序と先勝ちはコアの BaseMapViewController.dispatchTap が持つ。
+      // 移行前はここで circle → polygon → polyline → groundImage の独自順だった。
+      this.dispatchTap(point);
     };
 
     const eventView = view as __esri.MapView;
