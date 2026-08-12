@@ -13,6 +13,10 @@ import { ArcGISViewHolder } from '../ArcGISViewHolder';
 import WebTileLayer from '@arcgis/core/layers/WebTileLayer';
 import Point from '@arcgis/core/geometry/Point';
 import SpatialReference from '@arcgis/core/geometry/SpatialReference';
+import type { LODProperties } from "@arcgis/core/layers/support/LOD";
+import type { TileInfoProperties } from "@arcgis/core/layers/support/TileInfo";
+import type { ExtentProperties } from "@arcgis/core/geometry/Extent";
+import type Layer from "@arcgis/core/layers/Layer";
 
 // Mirrors ArcGISRasterLayerOverlayRenderer.kt (android-for-arcgis). WebTileLayer
 // needs an explicit Web Mercator TileInfo describing the tile server's actual
@@ -27,10 +31,10 @@ const INCHES_PER_METER = 39.37;
 const DEFAULT_MIN_ZOOM = 0;
 const DEFAULT_MAX_ZOOM = 22;
 
-export class ArcGISRasterLayerOverlayRenderer implements RasterLayerOverlayRenderer<__esri.Layer> {
+export class ArcGISRasterLayerOverlayRenderer implements RasterLayerOverlayRenderer<Layer> {
   constructor(readonly holder: ArcGISViewHolder) {}
 
-  async createRasterLayer(entity: RasterLayerEntity<__esri.Layer>): Promise<__esri.Layer | null> {
+  async createRasterLayer(entity: RasterLayerEntity<Layer>): Promise<Layer | null> {
     try {
       const layer = this.buildLayer(entity.state.source);
       if (!layer) return null;
@@ -42,29 +46,29 @@ export class ArcGISRasterLayerOverlayRenderer implements RasterLayerOverlayRende
     }
   }
 
-  async removeRasterLayer(layer: __esri.Layer): Promise<void> {
+  async removeRasterLayer(layer: Layer): Promise<void> {
     this.holder.map.map?.remove(layer);
   }
 
-  async onAdd(data: RasterLayerAddParams[]): Promise<(__esri.Layer | null)[]> {
-    return Promise.all(data.map(({ state }) => state.visible ? this.createRasterLayer({ state } as RasterLayerEntity<__esri.Layer>) : null));
+  async onAdd(data: RasterLayerAddParams[]): Promise<(Layer | null)[]> {
+    return Promise.all(data.map(({ state }) => state.visible ? this.createRasterLayer({ state } as RasterLayerEntity<Layer>) : null));
   }
 
-  async onChange(data: RasterLayerChangeParams<__esri.Layer>[]): Promise<(__esri.Layer | null)[]> {
+  async onChange(data: RasterLayerChangeParams<Layer>[]): Promise<(Layer | null)[]> {
     return Promise.all(data.map(async ({ current, prev }) => {
       await this.removeRasterLayer(prev.layer);
       return current.state.visible ? this.createRasterLayer(current) : null;
     }));
   }
 
-  async onRemove(data: RasterLayerEntity<__esri.Layer>[]): Promise<void> {
+  async onRemove(data: RasterLayerEntity<Layer>[]): Promise<void> {
     await Promise.all(data.map(({ layer }) => this.removeRasterLayer(layer)));
   }
 
   async onCameraChanged(_mapCameraPosition: MapCameraPosition): Promise<void> {}
   async onPostProcess(): Promise<void> {}
 
-  private buildLayer(source: RasterLayerSource): __esri.Layer | null {
+  private buildLayer(source: RasterLayerSource): Layer | null {
     if (source.type === 'TileJson') {
       console.warn('[ArcGIS] ArcGIS raster layers do not support TileJson sources.');
       return null;
@@ -113,7 +117,7 @@ function absolutizeTemplate(template: string): string {
   return template.startsWith('/') ? `${location.origin}${template}` : `${location.origin}/${template}`;
 }
 
-function buildWebMercatorFullExtent(): __esri.ExtentProperties {
+function buildWebMercatorFullExtent(): ExtentProperties {
   return {
     xmin: WEB_MERCATOR_MIN,
     ymin: WEB_MERCATOR_MIN,
@@ -144,7 +148,7 @@ function buildWebMercatorFullExtent(): __esri.ExtentProperties {
 // computed footprint, so the extra pixel density is harmless.
 const AGOL_REFERENCE_TILE_SIZE = 256;
 
-function buildWebMercatorTileInfo(minZoom: number, maxZoom: number): __esri.TileInfoProperties {
+function buildWebMercatorTileInfo(minZoom: number, maxZoom: number): TileInfoProperties {
   const spatialReference = new SpatialReference({ wkid: WEB_MERCATOR_WKID });
   const origin = new Point({ x: WEB_MERCATOR_MIN, y: WEB_MERCATOR_MAX, spatialReference });
   return {
@@ -157,9 +161,9 @@ function buildWebMercatorTileInfo(minZoom: number, maxZoom: number): __esri.Tile
   };
 }
 
-function buildWebMercatorLods(minZoom: number, maxZoom: number): __esri.LODProperties[] {
+function buildWebMercatorLods(minZoom: number, maxZoom: number): LODProperties[] {
   const initialResolution = (2 * Math.PI * WEB_MERCATOR_RADIUS_METERS) / AGOL_REFERENCE_TILE_SIZE;
-  const lods: __esri.LODProperties[] = [];
+  const lods: LODProperties[] = [];
   for (let level = minZoom; level <= maxZoom; level++) {
     const resolution = initialResolution / 2 ** level;
     const scale = resolution * DEFAULT_DPI * INCHES_PER_METER;

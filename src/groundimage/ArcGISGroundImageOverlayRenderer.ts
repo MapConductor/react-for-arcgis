@@ -8,6 +8,8 @@ import { ArcGISViewHolder } from '../ArcGISViewHolder';
 import ImageElement from '@arcgis/core/layers/support/ImageElement';
 import ExtentAndRotationGeoreference from '@arcgis/core/layers/support/ExtentAndRotationGeoreference';
 import { geoRectToExtent } from '../helpers';
+import type { MediaElement } from "@arcgis/core/layers/media/types";
+import type Collection from "@arcgis/core/core/Collection";
 
 // `picture-fill` symbols on a GraphicsLayer polygon tile a fixed-size
 // pattern in screen points — there is no way to make it stretch a single
@@ -15,13 +17,13 @@ import { geoRectToExtent } from '../helpers';
 // `ImageElement` is ArcGIS's dedicated ground-overlay primitive: it
 // georeferences a bitmap to an extent (like Google's GroundOverlay) and
 // exposes a per-element `opacity`.
-export class ArcGISGroundImageOverlayRenderer implements GroundImageOverlayRenderer<__esri.ImageElement> {
+export class ArcGISGroundImageOverlayRenderer implements GroundImageOverlayRenderer<ImageElement> {
   constructor(
     readonly holder: ArcGISViewHolder,
-    private elements: __esri.Collection<__esri.MediaElement>,
+    private elements: Collection<MediaElement>,
   ) {}
 
-  createGroundImage(entity: GroundImageEntity<__esri.ImageElement>): __esri.ImageElement | null {
+  createGroundImage(entity: GroundImageEntity<ImageElement>): ImageElement | null {
     const state = entity.state;
     const bounds = state.bounds;
     const imageUrl = state.imageUrl;
@@ -39,7 +41,7 @@ export class ArcGISGroundImageOverlayRenderer implements GroundImageOverlayRende
     return element;
   }
 
-  updateGroundImage(element: __esri.ImageElement, entity: GroundImageEntity<__esri.ImageElement>): void {
+  updateGroundImage(element: ImageElement, entity: GroundImageEntity<ImageElement>): void {
     const state = entity.state;
     const bounds = state.bounds;
     const imageUrl = state.imageUrl;
@@ -52,15 +54,15 @@ export class ArcGISGroundImageOverlayRenderer implements GroundImageOverlayRende
     element.georeference = new ExtentAndRotationGeoreference({ extent });
   }
 
-  removeGroundImage(element: __esri.ImageElement): void {
+  removeGroundImage(element: ImageElement): void {
     this.elements.remove(element);
   }
 
-  async onAdd(data: GroundImageAddParams[]): Promise<(__esri.ImageElement | null)[]> {
-    return data.map(({ state }) => this.createGroundImage({ state } as GroundImageEntity<__esri.ImageElement>));
+  async onAdd(data: GroundImageAddParams[]): Promise<(ImageElement | null)[]> {
+    return data.map(({ state }) => this.createGroundImage({ state } as GroundImageEntity<ImageElement>));
   }
 
-  async onChange(data: GroundImageChangeParams<__esri.ImageElement>[]): Promise<(__esri.ImageElement | null)[]> {
+  async onChange(data: GroundImageChangeParams<ImageElement>[]): Promise<(ImageElement | null)[]> {
     return data.map(({ current }) => {
       if (!current.groundImage) return this.createGroundImage(current);
       this.updateGroundImage(current.groundImage, current);
@@ -68,7 +70,7 @@ export class ArcGISGroundImageOverlayRenderer implements GroundImageOverlayRende
     });
   }
 
-  async onRemove(data: GroundImageEntity<__esri.ImageElement>[]): Promise<void> {
+  async onRemove(data: GroundImageEntity<ImageElement>[]): Promise<void> {
     data.forEach(({ groundImage }) => this.removeGroundImage(groundImage));
   }
 

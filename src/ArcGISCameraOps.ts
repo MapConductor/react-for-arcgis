@@ -9,6 +9,8 @@ import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtil
 import type { ArcGISViewHolder } from './ArcGISViewHolder';
 import { arcGISScaleToZoom, arcGISZoomToScale } from './ArcGISMapViewController';
 import { restoreLogicalCamera, shiftedCamera } from './ArcGIS2DTiltEmulation';
+import type Extent from "@arcgis/core/geometry/Extent";
+import type SceneView from "@arcgis/core/views/SceneView";
 
 /**
  * カメラの読み書き。
@@ -86,7 +88,7 @@ export function readCameraPosition(deps: CameraDeps): MapCameraPosition | null {
       visibleRegion: readVisibleRegion(deps),
     });
   }
-  const camera = (deps.holder.map as __esri.SceneView).camera;
+  const camera = (deps.holder.map as SceneView).camera;
   if (!camera) return null;
 
   const latitude = camera.position.latitude ?? camera.position.y ?? 0;
@@ -121,7 +123,7 @@ export function readVisibleRegion(deps: CameraDeps): VisibleRegion | null {
   // visibleRegion.bounds (e.g. marker clustering's viewport filter) sees
   // bogus coordinates and treats the whole map as out of view.
   const extent = rawExtent.spatialReference?.isWebMercator
-    ? (webMercatorUtils.webMercatorToGeographic(rawExtent) as __esri.Extent)
+    ? (webMercatorUtils.webMercatorToGeographic(rawExtent) as Extent)
     : rawExtent;
   if (!extent) return null;
 

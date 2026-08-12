@@ -5,11 +5,13 @@ import {
   type GeoPointInterface,
   type Offset,
 } from '@mapconductor/js-sdk-core';
+import type Point from "@arcgis/core/geometry/Point";
+import type MapView from "@arcgis/core/views/MapView";
 
-export class ArcGISViewHolder2D extends MapViewHolderBase<HTMLDivElement, __esri.MapView> {
+export class ArcGISViewHolder2D extends MapViewHolderBase<HTMLDivElement, MapView> {
   constructor(
     readonly mapView: HTMLDivElement,
-    readonly map: __esri.MapView,
+    readonly map: MapView,
   ) {
     super();
   }
@@ -23,7 +25,7 @@ export class ArcGISViewHolder2D extends MapViewHolderBase<HTMLDivElement, __esri
         spatialReference: { wkid: 4326 },
       };
 
-      const screenPoint = this.map.toScreen(point as __esri.Point);
+      const screenPoint = this.map.toScreen(point as Point);
       if (!screenPoint) return null;
 
       return {
@@ -42,7 +44,7 @@ export class ArcGISViewHolder2D extends MapViewHolderBase<HTMLDivElement, __esri
         y: offset.y,
       };
 
-      const point = this.map.toMap(screenPoint) as __esri.Point;
+      const point = this.map.toMap(screenPoint) as Point;
       if (!point) return null;
 
       return createGeoPoint({

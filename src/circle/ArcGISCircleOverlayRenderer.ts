@@ -12,14 +12,18 @@ import Graphic from '@arcgis/core/Graphic';
 import Point from '@arcgis/core/geometry/Point';
 import * as geometryEngine from '@arcgis/core/geometry/geometryEngine';
 import { geographicToWebMercator } from '@arcgis/core/geometry/support/webMercatorUtils';
+import type SimpleFillSymbol from "@arcgis/core/symbols/SimpleFillSymbol";
+import type Color from "@arcgis/core/Color";
+import type Polygon from "@arcgis/core/geometry/Polygon";
+import type GraphicsLayer from "@arcgis/core/layers/GraphicsLayer";
 
-export class ArcGISCircleOverlayRenderer implements CircleOverlayRenderer<__esri.Graphic> {
+export class ArcGISCircleOverlayRenderer implements CircleOverlayRenderer<Graphic> {
   constructor(
     readonly holder: ArcGISViewHolder,
-    private graphicsLayer: __esri.GraphicsLayer,
+    private graphicsLayer: GraphicsLayer,
   ) {}
 
-  createCircle(entity: CircleEntity<__esri.Graphic>): __esri.Graphic | null {
+  createCircle(entity: CircleEntity<Graphic>): Graphic | null {
     const state = entity.state;
 
     const graphic = new Graphic({
@@ -34,7 +38,7 @@ export class ArcGISCircleOverlayRenderer implements CircleOverlayRenderer<__esri
     return graphic;
   }
 
-  updateCircle(graphic: __esri.Graphic, entity: CircleEntity<__esri.Graphic>): void {
+  updateCircle(graphic: Graphic, entity: CircleEntity<Graphic>): void {
     const state = entity.state;
     graphic.geometry = this.createCircleGeometry(state);
     graphic.symbol = this.createCircleSymbol(state);
@@ -53,20 +57,20 @@ export class ArcGISCircleOverlayRenderer implements CircleOverlayRenderer<__esri
   // interpret radiusMeters in degrees — so the center is projected to Web
   // Mercator and the radius is applied in that projection's meters, mirroring
   // Android's planar GeometryEngine.buffer in the map's spatial reference.
-  private createCircleGeometry(state: CircleState): __esri.Polygon | null {
+  private createCircleGeometry(state: CircleState): Polygon | null {
     const center = new Point({
       longitude: state.center.longitude,
       latitude: state.center.latitude,
       spatialReference: { wkid: 4326 },
     });
     if (state.geodesic) {
-      return geometryEngine.geodesicBuffer(center, state.radiusMeters, 'meters') as __esri.Polygon | null;
+      return geometryEngine.geodesicBuffer(center, state.radiusMeters, 'meters') as Polygon | null;
     }
-    const projected = (geographicToWebMercator(center) as __esri.Point | null) ?? center;
-    return geometryEngine.buffer(projected, state.radiusMeters, 'meters') as __esri.Polygon | null;
+    const projected = (geographicToWebMercator(center) as Point | null) ?? center;
+    return geometryEngine.buffer(projected, state.radiusMeters, 'meters') as Polygon | null;
   }
 
-  removeCircle(graphic: __esri.Graphic): void {
+  removeCircle(graphic: Graphic): void {
     this.graphicsLayer.remove(graphic);
   }
 
@@ -88,7 +92,7 @@ export class ArcGISCircleOverlayRenderer implements CircleOverlayRenderer<__esri
 
   async onPostProcess(): Promise<void> {}
 
-  private createCircleSymbol(state: CircleState): __esri.SimpleFillSymbol {
+  private createCircleSymbol(state: CircleState): SimpleFillSymbol {
     const strokeColor = state.strokeColor ?? '#000000';
     const strokeWidth = (state.strokeWidth ?? 2) * CSS_PIXELS_TO_POINTS;
     const fillColor = state.fillColor ?? 'transparent';
@@ -98,13 +102,13 @@ export class ArcGISCircleOverlayRenderer implements CircleOverlayRenderer<__esri
     return {
       type: 'simple-fill',
       style: 'solid',
-      color: [...fill.color, fill.opacity] as unknown as __esri.Color,
+      color: [...fill.color, fill.opacity] as unknown as Color,
       outline: {
         type: 'simple-line',
         style: 'solid',
-        color: [...stroke.color, stroke.opacity] as unknown as __esri.Color,
+        color: [...stroke.color, stroke.opacity] as unknown as Color,
         width: strokeWidth,
       },
-    } as __esri.SimpleFillSymbol;
+    } as SimpleFillSymbol;
   }
 }

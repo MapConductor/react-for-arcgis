@@ -10,14 +10,18 @@ import { ArcGISViewHolder } from '../ArcGISViewHolder';
 import { toArcGISFillStyle } from '../color';
 import { CSS_PIXELS_TO_POINTS } from '../helpers';
 import Graphic from '@arcgis/core/Graphic';
+import type SimpleLineSymbol from "@arcgis/core/symbols/SimpleLineSymbol";
+import type Color from "@arcgis/core/Color";
+import type { PolylineProperties } from "@arcgis/core/geometry/Polyline";
+import type GraphicsLayer from "@arcgis/core/layers/GraphicsLayer";
 
-export class ArcGISPolylineOverlayRenderer implements PolylineOverlayRenderer<__esri.Graphic> {
+export class ArcGISPolylineOverlayRenderer implements PolylineOverlayRenderer<Graphic> {
   constructor(
     readonly holder: ArcGISViewHolder,
-    private graphicsLayer: __esri.GraphicsLayer,
+    private graphicsLayer: GraphicsLayer,
   ) {}
 
-  createPolyline(entity: PolylineEntity<__esri.Graphic>): __esri.Graphic | null {
+  createPolyline(entity: PolylineEntity<Graphic>): Graphic | null {
     const state = entity.state;
     if (state.points.length < 2) return null;
 
@@ -35,7 +39,7 @@ export class ArcGISPolylineOverlayRenderer implements PolylineOverlayRenderer<__
     return graphic;
   }
 
-  updatePolyline(graphic: __esri.Graphic, entity: PolylineEntity<__esri.Graphic>): void {
+  updatePolyline(graphic: Graphic, entity: PolylineEntity<Graphic>): void {
     const state = entity.state;
     if (state.points.length < 2) return;
 
@@ -45,7 +49,7 @@ export class ArcGISPolylineOverlayRenderer implements PolylineOverlayRenderer<__
     graphic.symbol = lineSymbol;
   }
 
-  removePolyline(graphic: __esri.Graphic): void {
+  removePolyline(graphic: Graphic): void {
     this.graphicsLayer.remove(graphic);
   }
 
@@ -67,7 +71,7 @@ export class ArcGISPolylineOverlayRenderer implements PolylineOverlayRenderer<__
 
   async onPostProcess(): Promise<void> {}
 
-  private createGeometry(state: PolylineState): __esri.PolylineProperties & { type: 'polyline' } {
+  private createGeometry(state: PolylineState): PolylineProperties & { type: 'polyline' } {
     // Core pipeline: densification + longitude unwrap (ArcGIS accepts unwrapped
     // longitudes, keeping antimeridian-crossing segments continuous).
     const path = buildUnwrappedPolylinePath(state.points, state.geodesic)
@@ -80,7 +84,7 @@ export class ArcGISPolylineOverlayRenderer implements PolylineOverlayRenderer<__
     };
   }
 
-  private createLineSymbol(state: PolylineState): __esri.SimpleLineSymbol {
+  private createLineSymbol(state: PolylineState): SimpleLineSymbol {
     const width = state.strokeWidth * CSS_PIXELS_TO_POINTS;
     const pattern = 'solid';
     const stroke = toArcGISFillStyle(state.strokeColor);
@@ -88,9 +92,9 @@ export class ArcGISPolylineOverlayRenderer implements PolylineOverlayRenderer<__
     return {
       type: 'simple-line',
       style: this.lineStyleToArcGISStyle(pattern),
-      color: [...stroke.color, stroke.opacity] as unknown as __esri.Color,
+      color: [...stroke.color, stroke.opacity] as unknown as Color,
       width: width,
-    } as __esri.SimpleLineSymbol;
+    } as SimpleLineSymbol;
   }
 
   private lineStyleToArcGISStyle(style: string): 'solid' | 'dash' | 'dot' | 'dash-dot' | 'long-dash' | 'long-dash-dot' | 'none' {

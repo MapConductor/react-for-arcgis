@@ -15,6 +15,7 @@ import {
 import Point from '@arcgis/core/geometry/Point';
 import { ArcGISMarkerRenderer } from './ArcGISMarkerRenderer';
 import { AbstractArcGISController } from './AbstractArcGISController';
+import type Graphic from "@arcgis/core/Graphic";
 
 const MARKER_DRAG_THRESHOLD_PX = 3;
 const MARKER_HIT_PADDING_PX = 4;
@@ -30,9 +31,9 @@ interface ViewDragEventLike {
   stopPropagation: () => void;
 }
 
-export class ArcGISMarkerController extends AbstractArcGISController<__esri.Graphic, ArcGISMarkerRenderer> {
+export class ArcGISMarkerController extends AbstractArcGISController<Graphic, ArcGISMarkerRenderer> {
   private dragHandle: { remove(): void } | null = null;
-  private dragEntity: MarkerEntity<__esri.Graphic> | null = null;
+  private dragEntity: MarkerEntity<Graphic> | null = null;
   private dragOrigin: Offset | null = null;
   private dragStarted = false;
 
@@ -87,7 +88,7 @@ export class ArcGISMarkerController extends AbstractArcGISController<__esri.Grap
     await this.syncTiledOverlay();
   }
 
-  findTiled(position: GeoPoint, zoom: number): MarkerEntity<__esri.Graphic> | null {
+  findTiled(position: GeoPoint, zoom: number): MarkerEntity<Graphic> | null {
     const found = this.tileRenderer?.findNearest(position, MARKER_HIT_RADIUS_MOUSE_PX, zoom);
     return found ? this.markerManager.getEntity(found.id) : null;
   }
@@ -147,7 +148,7 @@ export class ArcGISMarkerController extends AbstractArcGISController<__esri.Grap
     await super.clear();
   }
 
-  protected attachListeners(_marker: __esri.Graphic, _state: MarkerState): void {
+  protected attachListeners(_marker: Graphic, _state: MarkerState): void {
     // Click events are handled through the view's click handlers in the view
     // controller; dragging is handled by handleViewDrag below.
   }
@@ -233,7 +234,7 @@ export class ArcGISMarkerController extends AbstractArcGISController<__esri.Grap
     return this.renderer.holder.fromScreenOffsetSync({ x: event.x, y: event.y });
   }
 
-  private moveMarkerGraphic(entity: MarkerEntity<__esri.Graphic>, position: GeoPoint): void {
+  private moveMarkerGraphic(entity: MarkerEntity<Graphic>, position: GeoPoint): void {
     if (!entity.marker) return;
     entity.marker.geometry = new Point({
       longitude: position.longitude,
@@ -247,7 +248,7 @@ export class ArcGISMarkerController extends AbstractArcGISController<__esri.Grap
   // click dispatch (any marker) and drag start (draggable markers only) — a
   // no-limit nearest search would swallow every map click as a marker click
   // once a single marker exists.
-  findAtScreen(screen: Offset, zoom = 0): MarkerEntity<__esri.Graphic> | null {
+  findAtScreen(screen: Offset, zoom = 0): MarkerEntity<Graphic> | null {
     const hit = this.findHitAtScreen(screen, () => true);
     if (hit) return hit;
     if (!this.tileRenderer) return null;
@@ -255,15 +256,15 @@ export class ArcGISMarkerController extends AbstractArcGISController<__esri.Grap
     return position ? this.findTiled(position, zoom) : null;
   }
 
-  private findDraggableAtScreen(screen: Offset): MarkerEntity<__esri.Graphic> | null {
+  private findDraggableAtScreen(screen: Offset): MarkerEntity<Graphic> | null {
     return this.findHitAtScreen(screen, state => state.draggable);
   }
 
   private findHitAtScreen(
     screen: Offset,
     filter: (state: MarkerState) => boolean,
-  ): MarkerEntity<__esri.Graphic> | null {
-    let best: MarkerEntity<__esri.Graphic> | null = null;
+  ): MarkerEntity<Graphic> | null {
+    let best: MarkerEntity<Graphic> | null = null;
     let bestDist = Number.POSITIVE_INFINITY;
     for (const entity of this.markerManager.allEntities()) {
       const state = entity.state;

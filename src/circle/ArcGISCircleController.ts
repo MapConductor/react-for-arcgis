@@ -3,13 +3,14 @@ import {
   CircleManager,
 } from '@mapconductor/js-sdk-core';
 import { ArcGISCircleOverlayRenderer } from './ArcGISCircleOverlayRenderer';
+import type Graphic from "@arcgis/core/Graphic";
 
-export class ArcGISCircleOverlayController extends CircleController<__esri.Graphic> {
+export class ArcGISCircleOverlayController extends CircleController<Graphic> {
   declare readonly renderer: ArcGISCircleOverlayRenderer;
 
   constructor(renderer: ArcGISCircleOverlayRenderer) {
     super({
-      circleManager: new CircleManager<__esri.Graphic>(),
+      circleManager: new CircleManager<Graphic>(),
       renderer,
     });
   }

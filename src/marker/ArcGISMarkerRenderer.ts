@@ -12,24 +12,28 @@ import { ArcGISViewHolder } from '../ArcGISViewHolder';
 import { CSS_PIXELS_TO_POINTS } from '../helpers';
 import { markerVerticalStretch } from '../ArcGIS2DTiltEmulation';
 import Graphic from '@arcgis/core/Graphic';
+import type { GraphicProperties } from "@arcgis/core/Graphic";
+import type { IconSymbol3DLayerProperties } from "@arcgis/core/symbols/IconSymbol3DLayer";
+import type { PointProperties } from "@arcgis/core/geometry/Point";
+import type GraphicsLayer from "@arcgis/core/layers/GraphicsLayer";
 
 const DEFAULT_BITMAP_ICON = createDefaultIcon().toBitmapIcon();
 
 export class ArcGISMarkerRenderer
-  extends AbstractMarkerOverlayRenderer<ArcGISViewHolder, __esri.Graphic>
-  implements ArcGISMarkerRendererInterface<__esri.Graphic> {
+  extends AbstractMarkerOverlayRenderer<ArcGISViewHolder, Graphic>
+  implements ArcGISMarkerRendererInterface<Graphic> {
   constructor(
     holder: ArcGISViewHolder,
-    private graphicsLayer: __esri.GraphicsLayer,
+    private graphicsLayer: GraphicsLayer,
   ) {
     super({ holder });
     this.supportsAnimationOverlay = true;
   }
 
   createMarker(
-    entity: MarkerEntity<__esri.Graphic>,
+    entity: MarkerEntity<Graphic>,
     bitmapIcon: BitmapIcon = entity.state.icon?.toBitmapIcon() ?? DEFAULT_BITMAP_ICON,
-  ): __esri.Graphic | null {
+  ): Graphic | null {
     const state = entity.state;
     const position = state.position;
 
@@ -43,7 +47,7 @@ export class ArcGISMarkerRenderer
     const markerSymbol = this.createMarkerSymbol(bitmapIcon);
 
     const graphic = new Graphic({
-      geometry: point as __esri.PointProperties & { type: 'point' },
+      geometry: point as PointProperties & { type: 'point' },
       symbol: markerSymbol,
       attributes: {
         id: state.id,
@@ -55,8 +59,8 @@ export class ArcGISMarkerRenderer
   }
 
   updateMarker(
-    graphic: __esri.Graphic,
-    entity: MarkerEntity<__esri.Graphic>,
+    graphic: Graphic,
+    entity: MarkerEntity<Graphic>,
     bitmapIcon: BitmapIcon = entity.state.icon?.toBitmapIcon() ?? DEFAULT_BITMAP_ICON,
   ): void {
     const state = entity.state;
@@ -67,23 +71,23 @@ export class ArcGISMarkerRenderer
       longitude: position.longitude,
       latitude: position.latitude,
       spatialReference: { wkid: 4326 },
-    } as __esri.PointProperties & { type: 'point' };
+    } as PointProperties & { type: 'point' };
 
     const markerSymbol = this.createMarkerSymbol(bitmapIcon);
     graphic.symbol = markerSymbol;
   }
 
-  removeMarker(graphic: __esri.Graphic): void {
+  removeMarker(graphic: Graphic): void {
     this.graphicsLayer.remove(graphic);
   }
 
-  async onAdd(data: AddParams[]): Promise<(__esri.Graphic | null)[]> {
+  async onAdd(data: AddParams[]): Promise<(Graphic | null)[]> {
     return data.map(({ state, bitmapIcon }) =>
-      this.createMarker({ state } as MarkerEntity<__esri.Graphic>, bitmapIcon),
+      this.createMarker({ state } as MarkerEntity<Graphic>, bitmapIcon),
     );
   }
 
-  async onChange(data: ChangeParams<__esri.Graphic>[]): Promise<(__esri.Graphic | null)[]> {
+  async onChange(data: ChangeParams<Graphic>[]): Promise<(Graphic | null)[]> {
     return data.map(({ current, bitmapIcon }) => {
       if (!current.marker) return this.createMarker(current, bitmapIcon);
       this.updateMarker(current.marker, current, bitmapIcon);
@@ -91,23 +95,23 @@ export class ArcGISMarkerRenderer
     });
   }
 
-  async onRemove(data: MarkerEntity<__esri.Graphic>[]): Promise<void> {
+  async onRemove(data: MarkerEntity<Graphic>[]): Promise<void> {
     data.forEach(({ marker }) => { if (marker) this.removeMarker(marker); });
   }
 
   async onPostProcess(): Promise<void> {}
 
-  setMarkerPosition(entity: MarkerEntity<__esri.Graphic>, position: GeoPoint): void {
+  setMarkerPosition(entity: MarkerEntity<Graphic>, position: GeoPoint): void {
     if (!entity.marker) return;
     entity.marker.geometry = {
       type: 'point' as const,
       longitude: position.longitude,
       latitude: position.latitude,
       spatialReference: { wkid: 4326 },
-    } as __esri.PointProperties & { type: 'point' };
+    } as PointProperties & { type: 'point' };
   }
 
-  override setMarkerVisible(entity: MarkerEntity<__esri.Graphic>, visible: boolean): void {
+  override setMarkerVisible(entity: MarkerEntity<Graphic>, visible: boolean): void {
     if (entity.marker) entity.marker.visible = visible;
   }
 
@@ -128,11 +132,11 @@ export class ArcGISMarkerRenderer
   }
 
   /** 既存マーカーのシンボルを、現在の縦補正で作り直す。 */
-  rebuildSymbol(marker: __esri.Graphic, bitmapIcon: BitmapIcon): void {
+  rebuildSymbol(marker: Graphic, bitmapIcon: BitmapIcon): void {
     marker.symbol = this.createMarkerSymbol(bitmapIcon);
   }
 
-  private createMarkerSymbol(bitmapIcon: BitmapIcon): NonNullable<__esri.GraphicProperties['symbol']> {
+  private createMarkerSymbol(bitmapIcon: BitmapIcon): NonNullable<GraphicProperties['symbol']> {
     const iconUrl = bitmapIcon.url;
     const anchorU = bitmapIcon.anchor.x;
     const anchorV = bitmapIcon.anchor.y;
@@ -149,7 +153,7 @@ export class ArcGISMarkerRenderer
     //   "2D symbol of type 'picture-marker' is unsupported in 3D"
     // so 3D views must use PointSymbol3D + IconSymbol3DLayer.
     if (this.holder.map.type === '3d') {
-      const iconLayer: __esri.IconSymbol3DLayerProperties & { type: 'icon' } = {
+      const iconLayer: IconSymbol3DLayerProperties & { type: 'icon' } = {
         type: 'icon',
         size: Math.max(width, height),
         anchor: 'relative',

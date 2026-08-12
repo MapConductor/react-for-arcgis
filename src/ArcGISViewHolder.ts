@@ -7,11 +7,13 @@ import {
 } from '@mapconductor/js-sdk-core';
 import { ZoomAltitudeConverter } from './zoom';
 import Point from '@arcgis/core/geometry/Point';
+import type MapView from "@arcgis/core/views/MapView";
+import type SceneView from "@arcgis/core/views/SceneView";
 
-export class ArcGISViewHolder extends MapViewHolderBase<HTMLElement, __esri.SceneView | __esri.MapView> {
+export class ArcGISViewHolder extends MapViewHolderBase<HTMLElement, SceneView | MapView> {
   constructor(
     readonly mapView: HTMLElement,
-    readonly map: __esri.SceneView | __esri.MapView,
+    readonly map: SceneView | MapView,
     readonly zoomConverter: ZoomAltitudeConverter,
   ) {
     super();
@@ -48,7 +50,7 @@ export class ArcGISViewHolder extends MapViewHolderBase<HTMLElement, __esri.Scen
         y: offset.y,
       };
 
-      const point = this.map.toMap(screenPoint) as __esri.Point;
+      const point = this.map.toMap(screenPoint) as Point;
       if (!point) return null;
 
       return createGeoPoint({

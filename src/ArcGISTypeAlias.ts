@@ -1,7 +1,13 @@
-export type ArcGISActualMarker = __esri.Graphic;
-export type ArcGISActualMap = __esri.SceneView | __esri.MapView;
-export type ArcGISActualCircle = __esri.Graphic;
-export type ArcGISActualPolyline = __esri.Graphic;
-export type ArcGISActualPolygon = __esri.Graphic;
-export type ArcGISActualGroundImage = __esri.ImageElement;
-export type ArcGISActualRasterLayer = __esri.Layer;
+import type Layer from "@arcgis/core/layers/Layer";
+import type ImageElement from "@arcgis/core/layers/support/ImageElement";
+import type Graphic from "@arcgis/core/Graphic";
+import type MapView from "@arcgis/core/views/MapView";
+import type SceneView from "@arcgis/core/views/SceneView";
+
+export type ArcGISActualMarker = Graphic;
+export type ArcGISActualMap = SceneView | MapView;
+export type ArcGISActualCircle = Graphic;
+export type ArcGISActualPolyline = Graphic;
+export type ArcGISActualPolygon = Graphic;
+export type ArcGISActualGroundImage = ImageElement;
+export type ArcGISActualRasterLayer = Layer;

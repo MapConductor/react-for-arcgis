@@ -4,8 +4,9 @@ import {
   type RasterHeaderSupport,
 } from '@mapconductor/js-sdk-core';
 import { ArcGISRasterLayerOverlayRenderer } from './ArcGISRasterLayerOverlayRenderer';
+import type Layer from "@arcgis/core/layers/Layer";
 
-export class ArcGISRasterLayerController extends RasterLayerController<__esri.Layer> {
+export class ArcGISRasterLayerController extends RasterLayerController<Layer> {
   /**
    * WebTileLayer のタイル取得に介入する口が無い（esriConfig.request.interceptors は
    * 未検証のため、確かめずに対応とは書かない）。
@@ -20,7 +21,7 @@ export class ArcGISRasterLayerController extends RasterLayerController<__esri.La
 
   constructor(renderer: ArcGISRasterLayerOverlayRenderer) {
     super({
-      rasterLayerManager: new RasterLayerManager<__esri.Layer>(),
+      rasterLayerManager: new RasterLayerManager<Layer>(),
       renderer,
     });
   }

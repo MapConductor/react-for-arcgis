@@ -12,6 +12,10 @@ import { ArcGISViewHolder } from '../ArcGISViewHolder';
 import { toArcGISFillStyle } from '../color';
 import { CSS_PIXELS_TO_POINTS } from '../helpers';
 import Graphic from '@arcgis/core/Graphic';
+import type SimpleFillSymbol from "@arcgis/core/symbols/SimpleFillSymbol";
+import type Color from "@arcgis/core/Color";
+import type { PolygonProperties } from "@arcgis/core/geometry/Polygon";
+import type GraphicsLayer from "@arcgis/core/layers/GraphicsLayer";
 
 // ArcGIS polygons can become extremely dense when geodesic=true (especially
 // for world-mask rings), which may fail to render. Use a larger segment
@@ -19,13 +23,13 @@ import Graphic from '@arcgis/core/Graphic';
 // Android's ArcGISPolygonOverlayRenderer.)
 const GEODESIC_MAX_SEGMENT_LENGTH_METERS = 100_000;
 
-export class ArcGISPolygonOverlayRenderer implements PolygonOverlayRenderer<__esri.Graphic> {
+export class ArcGISPolygonOverlayRenderer implements PolygonOverlayRenderer<Graphic> {
   constructor(
     readonly holder: ArcGISViewHolder,
-    private graphicsLayer: __esri.GraphicsLayer,
+    private graphicsLayer: GraphicsLayer,
   ) {}
 
-  createPolygon(entity: PolygonEntity<__esri.Graphic>): __esri.Graphic | null {
+  createPolygon(entity: PolygonEntity<Graphic>): Graphic | null {
     const state = entity.state;
     if (!state.points || state.points.length < 3) return null;
 
@@ -42,7 +46,7 @@ export class ArcGISPolygonOverlayRenderer implements PolygonOverlayRenderer<__es
     return graphic;
   }
 
-  updatePolygon(graphic: __esri.Graphic, entity: PolygonEntity<__esri.Graphic>): void {
+  updatePolygon(graphic: Graphic, entity: PolygonEntity<Graphic>): void {
     const state = entity.state;
     if (!state.points || state.points.length < 3) return;
 
@@ -51,7 +55,7 @@ export class ArcGISPolygonOverlayRenderer implements PolygonOverlayRenderer<__es
     graphic.attributes = { id: state.id, zIndex: state.zIndex };
   }
 
-  removePolygon(graphic: __esri.Graphic): void {
+  removePolygon(graphic: Graphic): void {
     this.graphicsLayer.remove(graphic);
   }
 
@@ -98,7 +102,7 @@ export class ArcGISPolygonOverlayRenderer implements PolygonOverlayRenderer<__es
   // this by densifying first and opening afterwards (openRing(toRing(points)));
   // opening before densifying — as an earlier port did — drops the closing
   // vertex, leaving that edge a single straight chord instead of a geodesic arc.
-  private createGeometry(state: PolygonState): __esri.PolygonProperties & { type: 'polygon' } {
+  private createGeometry(state: PolygonState): PolygonProperties & { type: 'polygon' } {
     const resolved = state.holes.length > 1 ? unionHoles(state) : state;
 
     const { outerRings, holeRings } = buildUnwrappedPolygonRings(
@@ -122,7 +126,7 @@ export class ArcGISPolygonOverlayRenderer implements PolygonOverlayRenderer<__es
     };
   }
 
-  private createFillSymbol(state: PolygonState): __esri.SimpleFillSymbol {
+  private createFillSymbol(state: PolygonState): SimpleFillSymbol {
     const strokeColor = state.strokeColor ?? '#000000';
     const strokeWidth = (state.strokeWidth ?? 2) * CSS_PIXELS_TO_POINTS;
     const fillColor = state.fillColor ?? 'transparent';
@@ -132,14 +136,14 @@ export class ArcGISPolygonOverlayRenderer implements PolygonOverlayRenderer<__es
     return {
       type: 'simple-fill',
       style: 'solid',
-      color: [...fill.color, fill.opacity] as unknown as __esri.Color,
+      color: [...fill.color, fill.opacity] as unknown as Color,
       outline: {
         type: 'simple-line',
         style: 'solid',
-        color: [...stroke.color, stroke.opacity] as unknown as __esri.Color,
+        color: [...stroke.color, stroke.opacity] as unknown as Color,
         width: strokeWidth,
       },
-    } as __esri.SimpleFillSymbol;
+    } as SimpleFillSymbol;
   }
 }
 

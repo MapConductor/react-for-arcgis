@@ -36,6 +36,8 @@ import esriConfig from '@arcgis/core/config';
 import ElevationLayer from '@arcgis/core/layers/ElevationLayer';
 import * as reactiveUtils from '@arcgis/core/core/reactiveUtils';
 import { Earth, type GeoRectBounds } from '@mapconductor/js-sdk-core';
+import type { MediaElement } from "@arcgis/core/layers/media/types";
+import type Collection from "@arcgis/core/core/Collection";
 
 const WEB_MERCATOR_RADIUS_METERS = Earth.RADIUS_METERS;
 const DPI = 96;
@@ -141,7 +143,7 @@ export class ArcGISMapProvider extends MapProvider {
     // this converter; restrictBounds is enforced by clamping the camera on
     // every change (see below), the same approach Cesium needs.
     const referenceLatitude = config.initCameraPosition?.position.latitude ?? 0;
-    const view: __esri.SceneView | __esri.MapView = useSceneView
+    const view: SV | MV = useSceneView
       ? new SV({
           container: container as HTMLDivElement,
           map,
@@ -429,7 +431,7 @@ export class ArcGISMapProvider extends MapProvider {
   private createBasemap(
     designType: import('./ArcGISMapDesign').ArcGISDesignTypeInterface,
     BasemapConstructor: typeof import('@arcgis/core/Basemap').default,
-  ): __esri.Basemap {
+  ): BM {
     return new BasemapConstructor({
       style: { id: ArcGISDesign.toBasemapStyle(designType) },
     });
@@ -443,29 +445,29 @@ function getRasterLayerController(holder: ArcGISViewHolder): ArcGISRasterLayerCo
 
 function getMarkerController(
   holder: ArcGISViewHolder,
-  markerLayer: __esri.GraphicsLayer,
+  markerLayer: GL,
   config: ArcGISConfig,
 ): ArcGISMarkerController {
   const markerRenderer = new ArcGISMarkerRenderer(holder, markerLayer);
   return new ArcGISMarkerController(markerRenderer, config.markerTilingOptions);
 }
 
-function getCircleController(holder: ArcGISViewHolder, circleLayer: __esri.GraphicsLayer): ArcGISCircleOverlayController {
+function getCircleController(holder: ArcGISViewHolder, circleLayer: GL): ArcGISCircleOverlayController {
   const renderer = new ArcGISCircleOverlayRenderer(holder, circleLayer);
   return new ArcGISCircleOverlayController(renderer);
 }
 
-function getPolylineController(holder: ArcGISViewHolder, polylineLayer: __esri.GraphicsLayer): ArcGISPolylineOverlayController {
+function getPolylineController(holder: ArcGISViewHolder, polylineLayer: GL): ArcGISPolylineOverlayController {
   const renderer = new ArcGISPolylineOverlayRenderer(holder, polylineLayer);
   return new ArcGISPolylineOverlayController(renderer);
 }
 
-function getPolygonController(holder: ArcGISViewHolder, polygonLayer: __esri.GraphicsLayer): ArcGISPolygonOverlayController {
+function getPolygonController(holder: ArcGISViewHolder, polygonLayer: GL): ArcGISPolygonOverlayController {
   const renderer = new ArcGISPolygonOverlayRenderer(holder, polygonLayer);
   return new ArcGISPolygonOverlayController(renderer);
 }
 
-function getGroundImageController(holder: ArcGISViewHolder, groundImageElements: __esri.Collection<__esri.MediaElement>): ArcGISGroundImageController {
+function getGroundImageController(holder: ArcGISViewHolder, groundImageElements: Collection<MediaElement>): ArcGISGroundImageController {
   const renderer = new ArcGISGroundImageOverlayRenderer(holder, groundImageElements);
   return new ArcGISGroundImageController(renderer);
 }

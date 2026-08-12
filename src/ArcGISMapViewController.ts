@@ -37,6 +37,9 @@ import {
   handleMarkerClick,
   type ClickDeps,
 } from './ArcGISClickHandlers';
+import type MapView from "@arcgis/core/views/MapView";
+import type { ClickEvent, DoubleClickEvent } from "@arcgis/core/views/input/types";
+import type SceneView from "@arcgis/core/views/SceneView";
 
 export type ArcGISDesignTypeChangeHandler = (value: ArcGISDesignTypeInterface) => void;
 
@@ -144,7 +147,7 @@ export class ArcGISMapViewController
     this.setupEventListeners();
   }
 
-  getMap(): __esri.SceneView | __esri.MapView {
+  getMap(): SceneView | MapView {
     return this.holder.map;
   }
 
@@ -173,7 +176,7 @@ export class ArcGISMapViewController
 
     if (!this.gestureGuardsInstalled) {
       this.gestureGuardsInstalled = true;
-      view.on('double-click', (event: __esri.ViewDoubleClickEvent) => {
+      view.on('double-click', (event: DoubleClickEvent) => {
         if (!this.uiSettings.zoomGesture) event.stopPropagation();
       });
     }
@@ -238,7 +241,7 @@ export class ArcGISMapViewController
       isMoving = false;
     };
 
-    const handleClick = async (event: __esri.ViewClickEvent) => {
+    const handleClick = async (event: ClickEvent) => {
       const position = event.mapPoint;
       if (!position) return;
       const point = createGeoPoint({
@@ -256,7 +259,7 @@ export class ArcGISMapViewController
       this.dispatchTap(point);
     };
 
-    const eventView = view as __esri.MapView;
+    const eventView = view as MapView;
     const handles = [
       eventView.on('click', handleClick),
       eventView.on('layerview-create', () => {
@@ -265,7 +268,7 @@ export class ArcGISMapViewController
       }),
       view.type === '3d'
         ? reactiveUtils.watch(() => [view.camera, view.viewpoint], handleViewpointChange)
-        : reactiveUtils.watch(() => (view as __esri.MapView).viewpoint, handleViewpointChange),
+        : reactiveUtils.watch(() => (view as MapView).viewpoint, handleViewpointChange),
       reactiveUtils.watch(() => view.stationary, handleStationaryChange),
     ];
     this.eventCleanup.push(() => handles.forEach((handle) => handle?.remove()));

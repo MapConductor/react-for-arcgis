@@ -12,6 +12,7 @@ import type { ArcGISCircleOverlayController } from './circle/ArcGISCircleControl
 import type { ArcGISPolylineOverlayController } from './polyline/ArcGISPolylineController';
 import type { ArcGISPolygonOverlayController } from './polygon/ArcGISPolygonController';
 import type { ArcGISGroundImageController } from './groundimage/ArcGISGroundImageController';
+import type { ClickEvent } from "@arcgis/core/views/input/types";
 
 /**
  * クリックの配送。
@@ -32,7 +33,7 @@ export interface ClickDeps {
 }
 
 export async function handleMarkerClick(
-  deps: ClickDeps,event: __esri.ViewClickEvent): Promise<boolean> {
+  deps: ClickDeps,event: ClickEvent): Promise<boolean> {
   // Hit-test against rendered icon bounds in screen space; the geo-nearest
   // lookup (markerController.find) has no distance limit and would claim
   // every map click once any marker exists.
@@ -44,7 +45,7 @@ export async function handleMarkerClick(
 }
 
 export async function handleCircleClick(
-  deps: ClickDeps,event: __esri.ViewClickEvent, clicked: GeoPoint): Promise<boolean> {
+  deps: ClickDeps,event: ClickEvent, clicked: GeoPoint): Promise<boolean> {
   const screenPoint = { x: event.x, y: event.y };
   const position = deps.holder.fromScreenOffsetSync(screenPoint);
   if (!position) return false;
@@ -59,7 +60,7 @@ export async function handleCircleClick(
 }
 
 export async function handlePolygonClick(
-  deps: ClickDeps,event: __esri.ViewClickEvent, clicked: GeoPoint): Promise<boolean> {
+  deps: ClickDeps,event: ClickEvent, clicked: GeoPoint): Promise<boolean> {
   const screenPoint = { x: event.x, y: event.y };
   const position = deps.holder.fromScreenOffsetSync(screenPoint);
   if (!position) return false;
@@ -74,7 +75,7 @@ export async function handlePolygonClick(
 }
 
 export async function handlePolylineClick(
-  deps: ClickDeps,event: __esri.ViewClickEvent): Promise<boolean> {
+  deps: ClickDeps,event: ClickEvent): Promise<boolean> {
   const screenPoint = { x: event.x, y: event.y };
   const position = deps.holder.fromScreenOffsetSync(screenPoint);
   if (!position) return false;
@@ -92,7 +93,7 @@ export async function handlePolylineClick(
 }
 
 export async function handleGroundImageClick(
-  deps: ClickDeps,event: __esri.ViewClickEvent, clicked: GeoPoint): Promise<boolean> {
+  deps: ClickDeps,event: ClickEvent, clicked: GeoPoint): Promise<boolean> {
   const screenPoint = { x: event.x, y: event.y };
   const position = deps.holder.fromScreenOffsetSync(screenPoint);
   if (!position) return false;

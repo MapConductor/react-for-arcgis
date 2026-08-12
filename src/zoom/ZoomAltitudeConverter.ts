@@ -1,4 +1,5 @@
 import { AbstractZoomAltitudeConverter, MapCameraPosition } from '@mapconductor/js-sdk-core';
+import type { CameraProperties } from "@arcgis/core/Camera";
 
 const degToRad = (deg: number) => (deg * Math.PI) / 180;
 
@@ -130,7 +131,7 @@ export class ZoomAltitudeConverter extends AbstractZoomAltitudeConverter {
     mapCameraPositionToCameraOptions(
         cameraPosition: MapCameraPosition | null,
         { snapZoom = true }: { snapZoom?: boolean } = {},
-    ): __esri.CameraProperties | null {
+    ): CameraProperties | null {
         if (!cameraPosition) {
             return null;
         }
