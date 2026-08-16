@@ -1,6 +1,5 @@
 {
   "name": "@mapconductor/react-for-arcgis",
-  "private": true,
   "version": "0.2.0",
   "description": "ArcGIS provider for MapConductor React SDK",
   "main": "./dist/index.js",
