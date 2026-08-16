@@ -1,7 +1,15 @@
 import { MapConfig, MarkerTilingOptions, GeoRectBounds, MapProvider, MapViewControllerInterface, MarkerOverlayRenderer, MarkerEntity, AbstractZoomAltitudeConverter, MapCameraPosition, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, AbstractMarkerOverlayRenderer, BitmapIcon, AddParams, ChangeParams, AbstractMarkerController, MarkerState, RasterLayerState, CircleOverlayRenderer, CircleEntity, CircleAddParams, CircleChangeParams, CircleController, PolylineOverlayRenderer, PolylineEntity, PolylineAddParams, PolylineChangeParams, PolylineController, PolygonOverlayRenderer, PolygonEntity, PolygonAddParams, PolygonChangeParams, PolygonController, GroundImageOverlayRenderer, GroundImageEntity, GroundImageAddParams, GroundImageChangeParams, GroundImageController, RasterLayerOverlayRenderer, RasterLayerEntity, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, OnMarkerEventHandler, MarkerAnimationOverlayHost, MapViewBaseProps } from '@mapconductor/js-sdk-core';
 import { ArcGISDesignTypeInterface, ArcGISMapViewStateInterface } from './state.js';
 export { ArcGISDesign, ArcGISDesignType, ArcGISMapViewState, ArcGISMapViewStateParams, ArcGISViewState, ArcGISViewStateOptions, useArcGISViewState } from './state.js';
+import Layer from '@arcgis/core/layers/Layer';
+import ImageElement from '@arcgis/core/layers/support/ImageElement';
 import Graphic from '@arcgis/core/Graphic';
+import MapView from '@arcgis/core/views/MapView';
+import SceneView from '@arcgis/core/views/SceneView';
+import { CameraProperties } from '@arcgis/core/Camera';
+import GraphicsLayer from '@arcgis/core/layers/GraphicsLayer';
+import { MediaElement } from '@arcgis/core/layers/media/types';
+import Collection from '@arcgis/core/core/Collection';
 import * as React from 'react';
 import React__default from 'react';
 
@@ -28,13 +36,13 @@ declare class ArcGISMapProvider extends MapProvider {
     private createBasemap;
 }
 
-type ArcGISActualMarker = __esri.Graphic;
-type ArcGISActualMap = __esri.SceneView | __esri.MapView;
-type ArcGISActualCircle = __esri.Graphic;
-type ArcGISActualPolyline = __esri.Graphic;
-type ArcGISActualPolygon = __esri.Graphic;
-type ArcGISActualGroundImage = __esri.ImageElement;
-type ArcGISActualRasterLayer = __esri.Layer;
+type ArcGISActualMarker = Graphic;
+type ArcGISActualMap = SceneView | MapView;
+type ArcGISActualCircle = Graphic;
+type ArcGISActualPolyline = Graphic;
+type ArcGISActualPolygon = Graphic;
+type ArcGISActualGroundImage = ImageElement;
+type ArcGISActualRasterLayer = Layer;
 
 interface ArcGISMarkerRendererInterface<ActualMarker = ArcGISActualMarker> extends MarkerOverlayRenderer<ActualMarker> {
     createMarker(state: MarkerEntity<ActualMarker>): ActualMarker | null;
@@ -75,30 +83,30 @@ declare class ZoomAltitudeConverter extends AbstractZoomAltitudeConverter {
     }): number;
     mapCameraPositionToCameraOptions(cameraPosition: MapCameraPosition | null, { snapZoom }?: {
         snapZoom?: boolean;
-    }): __esri.CameraProperties | null;
+    }): CameraProperties | null;
 }
 
-declare class ArcGISViewHolder extends MapViewHolderBase<HTMLElement, __esri.SceneView | __esri.MapView> {
+declare class ArcGISViewHolder extends MapViewHolderBase<HTMLElement, SceneView | MapView> {
     readonly mapView: HTMLElement;
-    readonly map: __esri.SceneView | __esri.MapView;
+    readonly map: SceneView | MapView;
     readonly zoomConverter: ZoomAltitudeConverter;
-    constructor(mapView: HTMLElement, map: __esri.SceneView | __esri.MapView, zoomConverter: ZoomAltitudeConverter);
+    constructor(mapView: HTMLElement, map: SceneView | MapView, zoomConverter: ZoomAltitudeConverter);
     toScreenOffset(position: GeoPointInterface): Offset | null;
     fromScreenOffsetSync(offset: Offset): GeoPoint | null;
 }
 
-declare class ArcGISMarkerRenderer extends AbstractMarkerOverlayRenderer<ArcGISViewHolder, __esri.Graphic> implements ArcGISMarkerRendererInterface<__esri.Graphic> {
+declare class ArcGISMarkerRenderer extends AbstractMarkerOverlayRenderer<ArcGISViewHolder, Graphic> implements ArcGISMarkerRendererInterface<Graphic> {
     private graphicsLayer;
-    constructor(holder: ArcGISViewHolder, graphicsLayer: __esri.GraphicsLayer);
-    createMarker(entity: MarkerEntity<__esri.Graphic>, bitmapIcon?: BitmapIcon): __esri.Graphic | null;
-    updateMarker(graphic: __esri.Graphic, entity: MarkerEntity<__esri.Graphic>, bitmapIcon?: BitmapIcon): void;
-    removeMarker(graphic: __esri.Graphic): void;
-    onAdd(data: AddParams[]): Promise<(__esri.Graphic | null)[]>;
-    onChange(data: ChangeParams<__esri.Graphic>[]): Promise<(__esri.Graphic | null)[]>;
-    onRemove(data: MarkerEntity<__esri.Graphic>[]): Promise<void>;
+    constructor(holder: ArcGISViewHolder, graphicsLayer: GraphicsLayer);
+    createMarker(entity: MarkerEntity<Graphic>, bitmapIcon?: BitmapIcon): Graphic | null;
+    updateMarker(graphic: Graphic, entity: MarkerEntity<Graphic>, bitmapIcon?: BitmapIcon): void;
+    removeMarker(graphic: Graphic): void;
+    onAdd(data: AddParams[]): Promise<(Graphic | null)[]>;
+    onChange(data: ChangeParams<Graphic>[]): Promise<(Graphic | null)[]>;
+    onRemove(data: MarkerEntity<Graphic>[]): Promise<void>;
     onPostProcess(): Promise<void>;
-    setMarkerPosition(entity: MarkerEntity<__esri.Graphic>, position: GeoPoint): void;
-    setMarkerVisible(entity: MarkerEntity<__esri.Graphic>, visible: boolean): void;
+    setMarkerPosition(entity: MarkerEntity<Graphic>, position: GeoPoint): void;
+    setMarkerVisible(entity: MarkerEntity<Graphic>, visible: boolean): void;
     /**
      * 2D で地図コンテナを CSS `rotateX` で傾けているぶん、マーカーだけ先に縦へ引き伸ばして
      * 潰れを打ち消す倍率（`ArcGIS2DTiltEmulation.markerVerticalStretch`）。3D は常に 1。
@@ -109,7 +117,7 @@ declare class ArcGISMarkerRenderer extends AbstractMarkerOverlayRenderer<ArcGISV
      */
     setVerticalStretchForTilt(tilt: number): boolean;
     /** 既存マーカーのシンボルを、現在の縦補正で作り直す。 */
-    rebuildSymbol(marker: __esri.Graphic, bitmapIcon: BitmapIcon): void;
+    rebuildSymbol(marker: Graphic, bitmapIcon: BitmapIcon): void;
     private createMarkerSymbol;
 }
 
@@ -120,7 +128,7 @@ declare abstract class AbstractArcGISController<ActualMarker = ArcGISActualMarke
     protected abstract attachListeners(marker: ActualMarker, state: MarkerState): void;
 }
 
-declare class ArcGISMarkerController extends AbstractArcGISController<__esri.Graphic, ArcGISMarkerRenderer> {
+declare class ArcGISMarkerController extends AbstractArcGISController<Graphic, ArcGISMarkerRenderer> {
     private readonly tilingOptions;
     private dragHandle;
     private dragEntity;
@@ -142,11 +150,11 @@ declare class ArcGISMarkerController extends AbstractArcGISController<__esri.Gra
     constructor(renderer: ArcGISMarkerRenderer, tilingOptions?: MarkerTilingOptions);
     protected shouldTile(state: MarkerState, totalCount: number): boolean;
     protected onTiledMarkersChanged(): Promise<void>;
-    findTiled(position: GeoPoint, zoom: number): MarkerEntity<__esri.Graphic> | null;
+    findTiled(position: GeoPoint, zoom: number): MarkerEntity<Graphic> | null;
     private syncTiledOverlay;
     private removeTileOverlay;
     clear(): Promise<void>;
-    protected attachListeners(_marker: __esri.Graphic, _state: MarkerState): void;
+    protected attachListeners(_marker: Graphic, _state: MarkerState): void;
     update(state: MarkerState): Promise<void>;
     destroy(): void;
     private readonly handleViewDrag;
@@ -157,19 +165,19 @@ declare class ArcGISMarkerController extends AbstractArcGISController<__esri.Gra
      */
     private dragPositionFromEvent;
     private moveMarkerGraphic;
-    findAtScreen(screen: Offset, zoom?: number): MarkerEntity<__esri.Graphic> | null;
+    findAtScreen(screen: Offset, zoom?: number): MarkerEntity<Graphic> | null;
     private findDraggableAtScreen;
     private findHitAtScreen;
 }
 
-declare class ArcGISCircleOverlayRenderer implements CircleOverlayRenderer<__esri.Graphic> {
+declare class ArcGISCircleOverlayRenderer implements CircleOverlayRenderer<Graphic> {
     readonly holder: ArcGISViewHolder;
     private graphicsLayer;
-    constructor(holder: ArcGISViewHolder, graphicsLayer: __esri.GraphicsLayer);
-    createCircle(entity: CircleEntity<__esri.Graphic>): __esri.Graphic | null;
-    updateCircle(graphic: __esri.Graphic, entity: CircleEntity<__esri.Graphic>): void;
+    constructor(holder: ArcGISViewHolder, graphicsLayer: GraphicsLayer);
+    createCircle(entity: CircleEntity<Graphic>): Graphic | null;
+    updateCircle(graphic: Graphic, entity: CircleEntity<Graphic>): void;
     private createCircleGeometry;
-    removeCircle(graphic: __esri.Graphic): void;
+    removeCircle(graphic: Graphic): void;
     onAdd(data: CircleAddParams[]): Promise<(Graphic | null)[]>;
     onChange(data: CircleChangeParams<Graphic>[]): Promise<(Graphic | null)[]>;
     onRemove(data: CircleEntity<Graphic>[]): Promise<void>;
@@ -177,18 +185,18 @@ declare class ArcGISCircleOverlayRenderer implements CircleOverlayRenderer<__esr
     private createCircleSymbol;
 }
 
-declare class ArcGISCircleOverlayController extends CircleController<__esri.Graphic> {
+declare class ArcGISCircleOverlayController extends CircleController<Graphic> {
     readonly renderer: ArcGISCircleOverlayRenderer;
     constructor(renderer: ArcGISCircleOverlayRenderer);
 }
 
-declare class ArcGISPolylineOverlayRenderer implements PolylineOverlayRenderer<__esri.Graphic> {
+declare class ArcGISPolylineOverlayRenderer implements PolylineOverlayRenderer<Graphic> {
     readonly holder: ArcGISViewHolder;
     private graphicsLayer;
-    constructor(holder: ArcGISViewHolder, graphicsLayer: __esri.GraphicsLayer);
-    createPolyline(entity: PolylineEntity<__esri.Graphic>): __esri.Graphic | null;
-    updatePolyline(graphic: __esri.Graphic, entity: PolylineEntity<__esri.Graphic>): void;
-    removePolyline(graphic: __esri.Graphic): void;
+    constructor(holder: ArcGISViewHolder, graphicsLayer: GraphicsLayer);
+    createPolyline(entity: PolylineEntity<Graphic>): Graphic | null;
+    updatePolyline(graphic: Graphic, entity: PolylineEntity<Graphic>): void;
+    removePolyline(graphic: Graphic): void;
     onAdd(data: PolylineAddParams[]): Promise<(Graphic | null)[]>;
     onChange(data: PolylineChangeParams<Graphic>[]): Promise<(Graphic | null)[]>;
     onRemove(data: PolylineEntity<Graphic>[]): Promise<void>;
@@ -198,18 +206,18 @@ declare class ArcGISPolylineOverlayRenderer implements PolylineOverlayRenderer<_
     private lineStyleToArcGISStyle;
 }
 
-declare class ArcGISPolylineOverlayController extends PolylineController<__esri.Graphic> {
+declare class ArcGISPolylineOverlayController extends PolylineController<Graphic> {
     readonly renderer: ArcGISPolylineOverlayRenderer;
     constructor(renderer: ArcGISPolylineOverlayRenderer);
 }
 
-declare class ArcGISPolygonOverlayRenderer implements PolygonOverlayRenderer<__esri.Graphic> {
+declare class ArcGISPolygonOverlayRenderer implements PolygonOverlayRenderer<Graphic> {
     readonly holder: ArcGISViewHolder;
     private graphicsLayer;
-    constructor(holder: ArcGISViewHolder, graphicsLayer: __esri.GraphicsLayer);
-    createPolygon(entity: PolygonEntity<__esri.Graphic>): __esri.Graphic | null;
-    updatePolygon(graphic: __esri.Graphic, entity: PolygonEntity<__esri.Graphic>): void;
-    removePolygon(graphic: __esri.Graphic): void;
+    constructor(holder: ArcGISViewHolder, graphicsLayer: GraphicsLayer);
+    createPolygon(entity: PolygonEntity<Graphic>): Graphic | null;
+    updatePolygon(graphic: Graphic, entity: PolygonEntity<Graphic>): void;
+    removePolygon(graphic: Graphic): void;
     onAdd(data: PolygonAddParams[]): Promise<(Graphic | null)[]>;
     onChange(data: PolygonChangeParams<Graphic>[]): Promise<(Graphic | null)[]>;
     onRemove(data: PolygonEntity<Graphic>[]): Promise<void>;
@@ -218,43 +226,43 @@ declare class ArcGISPolygonOverlayRenderer implements PolygonOverlayRenderer<__e
     private createFillSymbol;
 }
 
-declare class ArcGISPolygonOverlayController extends PolygonController<__esri.Graphic> {
+declare class ArcGISPolygonOverlayController extends PolygonController<Graphic> {
     readonly renderer: ArcGISPolygonOverlayRenderer;
     constructor(renderer: ArcGISPolygonOverlayRenderer);
 }
 
-declare class ArcGISGroundImageOverlayRenderer implements GroundImageOverlayRenderer<__esri.ImageElement> {
+declare class ArcGISGroundImageOverlayRenderer implements GroundImageOverlayRenderer<ImageElement> {
     readonly holder: ArcGISViewHolder;
     private elements;
-    constructor(holder: ArcGISViewHolder, elements: __esri.Collection<__esri.MediaElement>);
-    createGroundImage(entity: GroundImageEntity<__esri.ImageElement>): __esri.ImageElement | null;
-    updateGroundImage(element: __esri.ImageElement, entity: GroundImageEntity<__esri.ImageElement>): void;
-    removeGroundImage(element: __esri.ImageElement): void;
-    onAdd(data: GroundImageAddParams[]): Promise<(__esri.ImageElement | null)[]>;
-    onChange(data: GroundImageChangeParams<__esri.ImageElement>[]): Promise<(__esri.ImageElement | null)[]>;
-    onRemove(data: GroundImageEntity<__esri.ImageElement>[]): Promise<void>;
+    constructor(holder: ArcGISViewHolder, elements: Collection<MediaElement>);
+    createGroundImage(entity: GroundImageEntity<ImageElement>): ImageElement | null;
+    updateGroundImage(element: ImageElement, entity: GroundImageEntity<ImageElement>): void;
+    removeGroundImage(element: ImageElement): void;
+    onAdd(data: GroundImageAddParams[]): Promise<(ImageElement | null)[]>;
+    onChange(data: GroundImageChangeParams<ImageElement>[]): Promise<(ImageElement | null)[]>;
+    onRemove(data: GroundImageEntity<ImageElement>[]): Promise<void>;
     onPostProcess(): Promise<void>;
 }
 
-declare class ArcGISGroundImageController extends GroundImageController<__esri.ImageElement> {
+declare class ArcGISGroundImageController extends GroundImageController<ImageElement> {
     readonly renderer: ArcGISGroundImageOverlayRenderer;
     constructor(renderer: ArcGISGroundImageOverlayRenderer);
 }
 
-declare class ArcGISRasterLayerOverlayRenderer implements RasterLayerOverlayRenderer<__esri.Layer> {
+declare class ArcGISRasterLayerOverlayRenderer implements RasterLayerOverlayRenderer<Layer> {
     readonly holder: ArcGISViewHolder;
     constructor(holder: ArcGISViewHolder);
-    createRasterLayer(entity: RasterLayerEntity<__esri.Layer>): Promise<__esri.Layer | null>;
-    removeRasterLayer(layer: __esri.Layer): Promise<void>;
-    onAdd(data: RasterLayerAddParams[]): Promise<(__esri.Layer | null)[]>;
-    onChange(data: RasterLayerChangeParams<__esri.Layer>[]): Promise<(__esri.Layer | null)[]>;
-    onRemove(data: RasterLayerEntity<__esri.Layer>[]): Promise<void>;
+    createRasterLayer(entity: RasterLayerEntity<Layer>): Promise<Layer | null>;
+    removeRasterLayer(layer: Layer): Promise<void>;
+    onAdd(data: RasterLayerAddParams[]): Promise<(Layer | null)[]>;
+    onChange(data: RasterLayerChangeParams<Layer>[]): Promise<(Layer | null)[]>;
+    onRemove(data: RasterLayerEntity<Layer>[]): Promise<void>;
     onCameraChanged(_mapCameraPosition: MapCameraPosition): Promise<void>;
     onPostProcess(): Promise<void>;
     private buildLayer;
 }
 
-declare class ArcGISRasterLayerController extends RasterLayerController<__esri.Layer> {
+declare class ArcGISRasterLayerController extends RasterLayerController<Layer> {
     /**
      * WebTileLayer のタイル取得に介入する口が無い（esriConfig.request.interceptors は
      * 未検証のため、確かめずに対応とは書かない）。
@@ -292,7 +300,7 @@ declare class ArcGISMapViewController extends BaseMapViewController implements M
     private mapDesignType;
     private mapDesignTypeChangeListener;
     constructor(holder: ArcGISViewHolder, markerController: ArcGISMarkerController, circleController: ArcGISCircleOverlayController, polylineController: ArcGISPolylineOverlayController, polygonController: ArcGISPolygonOverlayController, groundImageController: ArcGISGroundImageController, rasterLayerController: ArcGISRasterLayerController, mapDesignType?: ArcGISDesignTypeInterface);
-    getMap(): __esri.SceneView | __esri.MapView;
+    getMap(): SceneView | MapView;
     private uiSettings;
     private gestureGuardsInstalled;
     /**
