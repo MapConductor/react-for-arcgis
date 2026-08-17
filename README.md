@@ -28,6 +28,23 @@ npm install @mapconductor/react-for-arcgis @mapconductor/js-sdk-core @mapconduct
 from the [ArcGIS Location Platform](https://location.arcgis.com/); the
 OSM-based designs work without one.
 
+Pass the key to `useArcGISViewState`:
+
+```tsx
+// Your own key. Read it from your environment however your build tool does
+// it, and keep it out of source control.
+const ARCGIS_API_KEY = '…';
+
+const mapViewState = useArcGISViewState({
+  apiKey: ARCGIS_API_KEY,
+  mapDesignType: ArcGISDesign.Streets,
+  cameraPosition: INITIAL_CAMERA,
+});
+```
+
+Leave `apiKey` out and only the OSM-based designs will draw; the Esri ones
+report `ArcGIS API key is required`.
+
 ![](https://raw.githubusercontent.com/mapconductor/react-for-arcgis/docs/images/hello-map.jpg)
 
 ## Hello Map tutorial

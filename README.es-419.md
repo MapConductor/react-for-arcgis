@@ -18,6 +18,22 @@ npm install @mapconductor/react-for-arcgis @mapconductor/js-sdk-core @mapconduct
 
 `@arcgis/core` viene incluido como dependencia. Los mapas base de Esri requieren una clave de API de [ArcGIS Location Platform](https://location.arcgis.com/); los diseños basados en OSM funcionan sin ella.
 
+Pasa la clave a `useArcGISViewState`:
+
+```tsx
+// Tu propia clave. Léela del entorno con el mecanismo de tu herramienta de
+// compilación y mantenla fuera del control de versiones.
+const ARCGIS_API_KEY = '…';
+
+const mapViewState = useArcGISViewState({
+  apiKey: ARCGIS_API_KEY,
+  mapDesignType: ArcGISDesign.Streets,
+  cameraPosition: INITIAL_CAMERA,
+});
+```
+
+Si omites `apiKey`, solo se dibujarán los diseños basados en OSM; los de Esri informan `ArcGIS API key is required`.
+
 ![](https://raw.githubusercontent.com/mapconductor/react-for-arcgis/docs/images/hello-map.jpg)
 
 ## Tutorial Hello Map
