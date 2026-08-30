@@ -153,6 +153,16 @@ export class ZoomAltitudeConverter extends AbstractZoomAltitudeConverter {
                 x: position.longitude,
                 y: position.latitude,
                 z: altitude,
+                // `spatialReference` is REQUIRED here. x/y are WGS84 degrees, but a
+                // plain `{x, y, z}` autocasts to a Point whose spatialReference is
+                // null — @arcgis/core does not fall back to WGS84. `new SceneView({
+                // camera })` tolerates that, yet `view.goTo()` projects the target
+                // and dereferences `spatialReference`, throwing
+                // "Cannot read properties of null (reading 'spatialReference')".
+                // applyCamera's `.catch(() => false)` swallowed it, so the 3D camera
+                // silently ignored every programmatic move (camera-sync's fly-to
+                // buttons updated the readout while the SceneView stayed put).
+                spatialReference: { wkid: 4326 },
             },
             heading: bearing,
             tilt: tiltAbs,

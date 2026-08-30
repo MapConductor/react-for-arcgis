@@ -58,7 +58,24 @@ export function applyCamera(
   if (!cameraOptions) return Promise.resolve(false);
 
   const goToOptions = animated ? { duration: duration ?? 1000, speedFactor: 1 } : { animate: false };
-  return deps.holder.map.goTo(cameraOptions, goToOptions).then(() => true).catch(() => false);
+  return deps.holder.map.goTo(cameraOptions, goToOptions).then(() => true).catch(reportGoToFailure);
+}
+
+/**
+ * `goTo` rejects for two very different reasons and only one of them is normal:
+ * a newer `goTo` (or a user gesture) cancels the running animation, which ArcGIS
+ * reports as a `view:goto-interrupted` AbortError. Everything else is a real
+ * failure, and swallowing it silently is what let a malformed camera target
+ * (a `position` with no `spatialReference`) leave the SceneView motionless with
+ * nothing in the console. Keep returning `false` either way — callers only ask
+ * "did the camera reach the target" — but say so for the non-interrupt case.
+ */
+function reportGoToFailure(error: unknown): boolean {
+  const name = (error as { name?: string } | null)?.name;
+  if (name !== 'AbortError' && name !== 'view:goto-interrupted') {
+    console.warn('[mapconductor] ArcGIS goTo failed; camera did not move.', error);
+  }
+  return false;
 }
 
 export function readCameraPosition(deps: CameraDeps): MapCameraPosition | null {
