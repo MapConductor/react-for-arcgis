@@ -1,4 +1,4 @@
-import { AbstractZoomAltitudeConverter, MapCameraPosition } from '@mapconductor/js-sdk-core';
+import { AbstractZoomAltitudeConverter, MapCameraPosition, toNativeHeading, } from '@mapconductor/js-sdk-core';
 import type { CameraProperties } from "@arcgis/core/Camera";
 
 const degToRad = (deg: number) => (deg * Math.PI) / 180;
@@ -164,7 +164,7 @@ export class ZoomAltitudeConverter extends AbstractZoomAltitudeConverter {
                 // buttons updated the readout while the SceneView stayed put).
                 spatialReference: { wkid: 4326 },
             },
-            heading: bearing,
+            heading: toNativeHeading(bearing),
             tilt: tiltAbs,
         };
     }

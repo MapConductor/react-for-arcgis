@@ -1,4 +1,4 @@
-import { MapProvider, type MapViewControllerInterface } from '@mapconductor/js-sdk-core';
+import { MapProvider, type MapViewControllerInterface, toNativeRotation, } from '@mapconductor/js-sdk-core';
 import { ArcGISMapViewController, arcGISZoomToScale } from './ArcGISMapViewController';
 import { ArcGISViewHolder } from './ArcGISViewHolder';
 import { ArcGISMarkerController } from './marker/ArcGISMarkerController';
@@ -194,7 +194,7 @@ export class ArcGISMapProvider extends MapProvider {
                 config.initCameraPosition.position.latitude,
               )
             : undefined,
-          rotation: config.initCameraPosition?.bearing,
+          rotation: config.initCameraPosition ? toNativeRotation(config.initCameraPosition.bearing) : undefined,
           // Same "omit rather than pass undefined" rule as SceneView's
           // altitude constraints above.
           constraints: {

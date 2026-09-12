@@ -3,8 +3,7 @@ import {
   createGeoRectBounds,
   createMapCameraPosition,
   type MapCameraPosition,
-  type VisibleRegion,
-} from '@mapconductor/js-sdk-core';
+  type VisibleRegion, bearingFromNativeHeading, toNativeRotation, bearingFromNativeRotation, } from '@mapconductor/js-sdk-core';
 import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtils';
 import type { ArcGISViewHolder } from './ArcGISViewHolder';
 import { arcGISScaleToZoom, arcGISZoomToScale } from './ArcGISMapViewController';
@@ -51,7 +50,7 @@ export function applyCamera(
     return deps.holder.map.goTo({
       center: [shifted.center.longitude, shifted.center.latitude],
       scale: arcGISZoomToScale(shifted.zoom, shifted.center.latitude, snapZoom),
-      rotation: position.bearing,
+      rotation: toNativeRotation(position.bearing),
     }, goToOptions).then(() => true).catch(() => false);
   }
   const cameraOptions = deps.holder.zoomConverter.mapCameraPositionToCameraOptions(position, { snapZoom });
@@ -100,7 +99,7 @@ export function readCameraPosition(deps: CameraDeps): MapCameraPosition | null {
         longitude: restored.position.longitude,
       }),
       zoom: restored.zoom,
-      bearing: view.rotation,
+      bearing: bearingFromNativeRotation(view.rotation),
       tilt: logicalTilt,
       visibleRegion: readVisibleRegion(deps),
     });
@@ -124,7 +123,7 @@ export function readCameraPosition(deps: CameraDeps): MapCameraPosition | null {
       altitude: camera.position.z ?? undefined,
     }),
     zoom,
-    bearing: camera.heading ?? 0,
+    bearing: bearingFromNativeHeading(camera.heading ?? 0),
     tilt: camera.tilt ?? 0,
     visibleRegion: readVisibleRegion(deps),
   });

@@ -3,8 +3,7 @@ import {
   computeOffset,
   createGeoPoint,
   type GeoPoint,
-  type GeoPointInterface,
-} from '@mapconductor/js-sdk-core';
+  type GeoPointInterface, toNativeHeading, } from '@mapconductor/js-sdk-core';
 import { ZoomAltitudeConverter } from './zoom';
 
 /**
@@ -62,7 +61,7 @@ export function shiftedCamera(
   const target = computeOffset({
     origin: createGeoPoint({ latitude: position.latitude, longitude: position.longitude }),
     distance,
-    heading: bearing,
+    heading: toNativeHeading(bearing),
   });
   return {
     center: target,
@@ -96,7 +95,7 @@ export function restoreLogicalCamera(
   const origin = computeOffset({
     origin: createGeoPoint({ latitude: center.latitude, longitude: center.longitude }),
     distance,
-    heading: bearing + 180,
+    heading: toNativeHeading(bearing) + 180,
   });
   return { position: origin, zoom: originalZoom };
 }
