@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { mapViewStateInternal } from '@mapconductor/js-sdk-core';
+import { mapViewStateInternal, RasterTilePreferenceKey } from '@mapconductor/js-sdk-core';
 import '@arcgis/core/assets/esri/themes/light/main.css';
 import Attribution from '@arcgis/core/widgets/Attribution';
 import Zoom from '@arcgis/core/widgets/Zoom';
@@ -259,6 +259,18 @@ export function ArcGISMapView({
   // （android-sdk の *MapView.kt / ios-sdk の *MapView.swift が
   //  MarkerRenderingSupportKey を put するのと同じ位置づけ）。
   useMarkerRenderingSupport(state, scope, controller);
+
+  // 3D SceneView は「タイルは 256px」という前提でレベルを選ぶ。512px のタイルを
+  // 渡すと 1 段深いレベルを 4 倍の枚数で引く（Android 実機・統一ズーム 12 で
+  // 2D は z=11、3D は z=12）。絵は正しいので気づきにくいぶん、宣言しておく。
+  // 2D は好みが無いので登録しない — 供給側の既定（512）のほうが安い。
+  useEffect(() => {
+    if (!useSceneView) return;
+    state.serviceRegistry.put(RasterTilePreferenceKey, { preferredTileSize: 256 });
+    return () => {
+      state.serviceRegistry.remove(RasterTilePreferenceKey);
+    };
+  }, [state, useSceneView]);
 
   // 3D（SceneView）はカメラが実際に傾くので変換しない。2D のみ絶対値で傾ける。
   const tiltPlane = useSceneView ? 0 : Math.min(Math.abs(visualTilt), 60);
