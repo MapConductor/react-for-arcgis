@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { mapViewStateInternal, RasterTilePreferenceKey } from '@mapconductor/js-sdk-core';
+import { mapViewStateInternal } from '@mapconductor/js-sdk-core';
 import '@arcgis/core/assets/esri/themes/light/main.css';
 import Attribution from '@arcgis/core/widgets/Attribution';
 import Zoom from '@arcgis/core/widgets/Zoom';
@@ -260,17 +260,17 @@ export function ArcGISMapView({
   //  MarkerRenderingSupportKey を put するのと同じ位置づけ）。
   useMarkerRenderingSupport(state, scope, controller);
 
-  // 3D SceneView は「タイルは 256px」という前提でレベルを選ぶ。512px のタイルを
-  // 渡すと 1 段深いレベルを 4 倍の枚数で引く（Android 実機・統一ズーム 12 で
-  // 2D は z=11、3D は z=12）。絵は正しいので気づきにくいぶん、宣言しておく。
-  // 2D は好みが無いので登録しない — 供給側の既定（512）のほうが安い。
-  useEffect(() => {
-    if (!useSceneView) return;
-    state.serviceRegistry.put(RasterTilePreferenceKey, { preferredTileSize: 256 });
-    return () => {
-      state.serviceRegistry.remove(RasterTilePreferenceKey);
-    };
-  }, [state, useSceneView]);
+  // ここで 256 を宣言したいが、まだできない。
+  //
+  // 3D SceneView は「タイルは 256px」という前提でレベルを選ぶので、512px の
+  // タイルを渡すと 1 段深いレベルを 4 倍の枚数で引く（Android 実機・統一ズーム
+  // 12 で 2D は z=11、3D は z=12）。枚数だけの問題なら 256 を要求すればよい。
+  //
+  // ところがベクタータイルのラスタライザ（mvt-render）は**タイルが 512dp で
+  // 表示される**前提で、`paint_scale = 出力px / 512`、style の式は `zoom = z`
+  // で評価する。SceneView はどちらのタイルサイズでも 256dp の枠に表示するので、
+  // 文字も線も半分の大きさになり、style の評価ズームも 1 段ずれる（実機で確認）。
+  // ラスタライザが「表示 dp」を受け取れるようになるまで宣言しない。
 
   // 3D（SceneView）はカメラが実際に傾くので変換しない。2D のみ絶対値で傾ける。
   const tiltPlane = useSceneView ? 0 : Math.min(Math.abs(visualTilt), 60);
