@@ -27,6 +27,7 @@ import { ArcGISRasterLayerController } from './raster/ArcGISRasterLayerControlle
 import { ArcGISViewHolder } from './ArcGISViewHolder';
 import { ArcGISDesign, type ArcGISDesignTypeInterface } from './ArcGISMapDesign';
 import Basemap from '@arcgis/core/Basemap';
+import { removeBasemapKeepingWebMercator } from './noBasemap';
 import * as reactiveUtils from '@arcgis/core/core/reactiveUtils';
 import {
   applyCamera,
@@ -193,9 +194,11 @@ export class ArcGISMapViewController
     this.mapDesignType = value;
     const map = this.holder.map.map;
     if (map) {
-      map.basemap = new Basemap({
-        style: { id: ArcGISDesign.toBasemapStyle(value) },
-      });
+      if (value.getValue() === ArcGISDesign.None.id) {
+        removeBasemapKeepingWebMercator(this.holder.map);
+      } else {
+        map.basemap = new Basemap({ style: { id: ArcGISDesign.toBasemapStyle(value) } });
+      }
     }
     this.mapDesignTypeChangeListener?.(value);
   }

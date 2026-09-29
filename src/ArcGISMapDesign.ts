@@ -21,6 +21,17 @@ export class ArcGISDesign implements ArcGISDesignTypeInterface {
     return new ArcGISDesign(this.id, sources, this.attributionRules);
   }
 
+  /**
+   * No basemap: the map shows only what the app puts on it, over a neutral
+   * background.
+   *
+   * For a raster that covers the whole viewport (vector tiles drawn on the
+   * device, say) the basemap under it is fetched and drawn for nobody. Same
+   * meaning as `GoogleMapDesign.None`; MapLibre says it with an empty style.
+   * android-sdk / ios-sdk carry the same `"none"`.
+   */
+  static readonly None = new ArcGISDesign('none');
+
   static readonly Streets = new ArcGISDesign('arc_gis_streets');
   static readonly Imagery = new ArcGISDesign('arc_gis_imagery');
   static readonly ImageryStandard = new ArcGISDesign('arc_gis_imagery_standard');

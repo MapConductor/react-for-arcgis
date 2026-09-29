@@ -17,6 +17,7 @@ import { ArcGISConfig } from './ArcGISMapConfig';
 import { ZoomAltitudeConverter } from './zoom';
 import { ArcGISDesign } from './ArcGISMapDesign';
 import { geoRectToExtent } from './helpers';
+import { webMercatorViewProperties } from './noBasemap';
 // Static imports, deliberately: this package's other modules (marker/circle
 // renderers, controller) already import @arcgis/core/Graphic etc. statically,
 // so dynamic imports here split @arcgis/core discovery into two waves. On a
@@ -151,6 +152,8 @@ export class ArcGISMapProvider extends MapProvider {
             ? zoomConverter.mapCameraPositionToCameraOptions(config.initCameraPosition) ?? undefined
             : undefined,
           qualityProfile: 'high',
+          // No basemap to take the spatial reference from: say it outright.
+          ...(basemap ? {} : { spatialReference: webMercatorViewProperties().spatialReference }),
           environment: {
             lighting: {
               type: 'virtual',
@@ -195,9 +198,12 @@ export class ArcGISMapProvider extends MapProvider {
               )
             : undefined,
           rotation: config.initCameraPosition ? toNativeRotation(config.initCameraPosition.bearing) : undefined,
+          // No basemap to take the spatial reference from: say it outright.
+          ...(basemap ? {} : { spatialReference: webMercatorViewProperties().spatialReference }),
           // Same "omit rather than pass undefined" rule as SceneView's
           // altitude constraints above.
           constraints: {
+            ...(basemap ? {} : { lods: webMercatorViewProperties().lods }),
             // snapToZoom:false lets fitBounds apply a fractional scale so the
             // bounds fit the padded viewport precisely. Normal camera moves
             // still request exact integer-LOD scales (arcGISZoomToScale snaps
@@ -431,7 +437,8 @@ export class ArcGISMapProvider extends MapProvider {
   private createBasemap(
     designType: import('./ArcGISMapDesign').ArcGISDesignTypeInterface,
     BasemapConstructor: typeof import('@arcgis/core/Basemap').default,
-  ): BM {
+  ): BM | null {
+    if (designType.getValue() === ArcGISDesign.None.id) return null;
     return new BasemapConstructor({
       style: { id: ArcGISDesign.toBasemapStyle(designType) },
     });
