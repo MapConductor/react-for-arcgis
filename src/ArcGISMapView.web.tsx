@@ -253,7 +253,10 @@ export function ArcGISMapView({
       bridgeUnsubs.current = [];
       provider.destroy();
     };
-  }, [state.apiKey, state.mapDesignType.id, useSceneView]);
+    // Design changes are applied live via the controller (see the state's
+    // mapDesignType setter -> controller.setMapDesignType), so the map is not
+    // torn down and re-initialized when only the design changes.
+  }, [state.apiKey, useSceneView]);
 
   void cameraTick;
 
