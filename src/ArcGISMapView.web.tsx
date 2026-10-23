@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { mapViewStateInternal } from '@mapconductor/js-sdk-core';
+import { mapViewStateInternal, markerIconExtentPx } from '@mapconductor/js-sdk-core';
 import '@arcgis/core/assets/esri/themes/light/main.css';
 import Attribution from '@arcgis/core/widgets/Attribution';
 import Zoom from '@arcgis/core/widgets/Zoom';
@@ -386,12 +386,12 @@ export function ArcGISMapView({
               const screenOffset = holder.toScreenOffset(pos);
               if (!screenOffset) return null;
               const icon = entry.icon;
-              const iconPixelSize = icon ? icon.iconSize * icon.scale : 0;
+              const iconPixelSize = markerIconExtentPx(icon);
               return (
                 <InfoBubbleOverlay
                   key={entry.id}
                   positionOffset={screenOffset}
-                  iconSize={{ width: iconPixelSize, height: iconPixelSize }}
+                  iconSize={iconPixelSize}
                   iconOffset={icon ? icon.anchor : { x: 0.5, y: 0.5 }}
                   infoAnchorOffset={icon ? icon.infoAnchor : { x: 0.5, y: 0.5 }}
                   tailOffset={entry.tailOffset}

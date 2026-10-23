@@ -11,6 +11,9 @@ import {
   type MarkerState,
   type Offset,
   type RasterLayerState,
+  pickMarkerHit,
+  preferMarkerHit,
+  type MarkerHit,
 } from '@mapconductor/js-sdk-core';
 import Point from '@arcgis/core/geometry/Point';
 import { ArcGISMarkerRenderer } from './ArcGISMarkerRenderer';
@@ -249,51 +252,46 @@ export class ArcGISMarkerController extends AbstractArcGISController<Graphic, Ar
   // no-limit nearest search would swallow every map click as a marker click
   // once a single marker exists.
   findAtScreen(screen: Offset, zoom = 0): MarkerEntity<Graphic> | null {
-    const hit = this.findHitAtScreen(screen, () => true);
-    if (hit) return hit;
-    if (!this.tileRenderer) return null;
-    const position = this.renderer.holder.fromScreenOffsetSync(screen);
-    return position ? this.findTiled(position, zoom) : null;
+    const regular = this.findHitAtScreen(screen, () => true);
+    if (regular?.exact) return regular.item;
+    // タイル化マーカーも同じ規則で比べる（指の下に描かれていれば、通常マーカーの近接より勝つ）。
+    const position = this.tileRenderer ? this.renderer.holder.fromScreenOffsetSync(screen) : null;
+    const tiledHit = position ? this.tileRenderer?.findHit(position, MARKER_HIT_RADIUS_MOUSE_PX, zoom) ?? null : null;
+    const tiledEntity = tiledHit ? this.markerManager.getEntity(tiledHit.item.id) : null;
+    return preferMarkerHit<MarkerEntity<Graphic>>(
+      regular,
+      tiledHit && tiledEntity ? { ...tiledHit, item: tiledEntity } : null,
+    )?.item ?? null;
   }
 
   private findDraggableAtScreen(screen: Offset): MarkerEntity<Graphic> | null {
-    return this.findHitAtScreen(screen, state => state.draggable);
+    return this.findHitAtScreen(screen, state => state.draggable)?.item ?? null;
   }
 
+  // 選び方はコアの pickMarkerHit（android / iOS の MarkerHitTest.pickIndex）と同じ。指の下に
+  // アイコン（ラベル込み）が描かれているマーカーを、アンカーの近い別のマーカーより優先する。
   private findHitAtScreen(
     screen: Offset,
     filter: (state: MarkerState) => boolean,
-  ): MarkerEntity<Graphic> | null {
-    let best: MarkerEntity<Graphic> | null = null;
-    let bestDist = Number.POSITIVE_INFINITY;
-    for (const entity of this.markerManager.allEntities()) {
-      const state = entity.state;
-      if (!filter(state) || !entity.marker) continue;
-      const anchorScreen = this.renderer.holder.toScreenOffset(state.position);
-      if (!anchorScreen) continue;
-
-      const bitmapIcon = state.icon?.toBitmapIcon() ?? DEFAULT_BITMAP_ICON;
-      const width = bitmapIcon.size.width;
-      const height = bitmapIcon.size.height;
-      let hit: boolean;
-      if (width && height) {
-        const left = anchorScreen.x - bitmapIcon.anchor.x * width - MARKER_HIT_PADDING_PX;
-        const top = anchorScreen.y - bitmapIcon.anchor.y * height - MARKER_HIT_PADDING_PX;
-        hit = screen.x >= left && screen.x <= left + width + MARKER_HIT_PADDING_PX * 2 &&
-          screen.y >= top && screen.y <= top + height + MARKER_HIT_PADDING_PX * 2;
-      } else {
-        hit = Math.hypot(anchorScreen.x - screen.x, anchorScreen.y - screen.y) <= MARKER_HIT_RADIUS_MOUSE_PX;
-      }
-      if (!hit) continue;
-
-      const dist = Math.hypot(anchorScreen.x - screen.x, anchorScreen.y - screen.y);
-      if (dist < bestDist) {
-        best = entity;
-        bestDist = dist;
-      }
-    }
-    return best;
+  ): MarkerHit<MarkerEntity<Graphic>> | null {
+    return pickMarkerHit(
+      screen,
+      this.markerManager.allEntities().filter(entity => entity.marker && filter(entity.state)),
+      entity => {
+        const anchorScreen = this.renderer.holder.toScreenOffset(entity.state.position);
+        if (!anchorScreen) return null;
+        const bitmapIcon = entity.state.icon?.toBitmapIcon() ?? DEFAULT_BITMAP_ICON;
+        return {
+          anchorScreen,
+          width: bitmapIcon.size.width,
+          height: bitmapIcon.size.height,
+          anchor: bitmapIcon.anchor,
+        };
+      },
+      MARKER_HIT_PADDING_PX,
+    );
   }
+
 }
 
 function generateId(): string {
