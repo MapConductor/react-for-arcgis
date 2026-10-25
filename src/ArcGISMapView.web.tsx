@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { mapViewStateInternal, markerIconExtentPx } from '@mapconductor/js-sdk-core';
+import { mapViewStateInternal, RasterTilePreferenceKey, markerIconExtentPx } from '@mapconductor/js-sdk-core';
 import '@arcgis/core/assets/esri/themes/light/main.css';
 import Attribution from '@arcgis/core/widgets/Attribution';
 import Zoom from '@arcgis/core/widgets/Zoom';
@@ -15,6 +15,7 @@ import {
   createMapContextValue,
 } from '@mapconductor/js-sdk-react';
 import {
+  useMapViewStyle,
   useCameraRestriction,
   useMapUISettings,
   useMarkerRenderingSupport,
@@ -62,6 +63,8 @@ function ensureArcGISViewRootStyle(): void {
 
 export function ArcGISMapView({
   state,
+  mapStyle,
+  onStyleDiagnostics,
   className,
   style,
   markerTilingOptions,
@@ -88,6 +91,11 @@ export function ArcGISMapView({
   const [provider] = useState(() => new ArcGISMapProvider());
   const [scope] = useState(() => new MapViewScope());
   const [controller, setController] = useState<MapViewControllerInterface | null>(null);
+
+  // 地図の見た目。何が起きるかはこのバックエンドが宣言した能力で決まるので、
+  // ここにプロバイダ固有の分岐は無い。android-sdk の `MapViewStyleEffect`、
+  // ios-sdk の `MapViewStyleHost` と同じ役目。
+  useMapViewStyle(state, controller, mapStyle, onStyleDiagnostics);
   const [isReady, setIsReady] = useState(false);
   // `onMapLoaded` と同じ瞬間を「値」として持つ。イベントを取り逃した後から
   // マウントした子（examples の Three.js overlay 等）も読めるようにするため。
@@ -245,7 +253,10 @@ export function ArcGISMapView({
       bridgeUnsubs.current = [];
       provider.destroy();
     };
-  }, [state.apiKey, state.mapDesignType.id, useSceneView]);
+    // Design changes are applied live via the controller (see the state's
+    // mapDesignType setter -> controller.setMapDesignType), so the map is not
+    // torn down and re-initialized when only the design changes.
+  }, [state.apiKey, useSceneView]);
 
   void cameraTick;
 
@@ -259,6 +270,18 @@ export function ArcGISMapView({
   // （android-sdk の *MapView.kt / ios-sdk の *MapView.swift が
   //  MarkerRenderingSupportKey を put するのと同じ位置づけ）。
   useMarkerRenderingSupport(state, scope, controller);
+
+  // 3D SceneView は「タイルは 256px」という前提でレベルを選ぶ。512px のタイルを
+  // 渡すと 1 段深いレベルを 4 倍の枚数で引く（Android 実機・統一ズーム 12 で
+  // 2D は z=11、3D は z=12）。絵は正しいので気づきにくいぶん、宣言しておく。
+  // 2D は好みが無いので登録しない — 供給側の既定（512）のほうが安い。
+  useEffect(() => {
+    if (!useSceneView) return;
+    state.serviceRegistry.put(RasterTilePreferenceKey, { preferredTileSize: 256 });
+    return () => {
+      state.serviceRegistry.remove(RasterTilePreferenceKey);
+    };
+  }, [state, useSceneView]);
 
   // 3D（SceneView）はカメラが実際に傾くので変換しない。2D のみ絶対値で傾ける。
   const tiltPlane = useSceneView ? 0 : Math.min(Math.abs(visualTilt), 60);

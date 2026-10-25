@@ -354,7 +354,7 @@ interface ArcGISMapViewProps extends MapViewBaseProps<ArcGISMapViewStateInterfac
     children?: React__default.ReactNode;
 }
 
-declare function ArcGISMapView({ state, className, style, markerTilingOptions, minZoom, maxZoom, restrictBounds, cameraRestriction, onError, onMapLoaded, onMapClick, onMapLongClick, onCameraMoveStart, onCameraMove, onCameraMoveEnd, children, useSceneView, }: ArcGISMapViewProps & {
+declare function ArcGISMapView({ state, mapStyle, onStyleDiagnostics, className, style, markerTilingOptions, minZoom, maxZoom, restrictBounds, cameraRestriction, onError, onMapLoaded, onMapClick, onMapLongClick, onCameraMoveStart, onCameraMove, onCameraMoveEnd, children, useSceneView, }: ArcGISMapViewProps & {
     useSceneView?: boolean;
 }): React.JSX.Element;
 declare function ArcGISMapView2D(props: ArcGISMapViewProps): React.JSX.Element;
