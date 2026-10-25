@@ -1,6 +1,8 @@
 import SpatialReference from '@arcgis/core/geometry/SpatialReference';
+import type LOD from '@arcgis/core/layers/support/LOD';
 import TileInfo from '@arcgis/core/layers/support/TileInfo';
 import type MapView from '@arcgis/core/views/MapView';
+import type SceneView from '@arcgis/core/views/SceneView';
 
 /**
  * What a view loses with its basemap, and has to be told instead.
@@ -13,12 +15,12 @@ import type MapView from '@arcgis/core/views/MapView';
  */
 const webMercator = new SpatialReference({ wkid: 102100 });
 
-export function webMercatorViewProperties(): { spatialReference: SpatialReference; lods: __esri.LOD[] } {
+export function webMercatorViewProperties(): { spatialReference: SpatialReference; lods: LOD[] } {
   return { spatialReference: webMercator, lods: TileInfo.create({ spatialReference: webMercator }).lods };
 }
 
 /** Removes the basemap from a live view without the 2D view losing its tiling scheme. */
-export function removeBasemapKeepingWebMercator(view: MapView | __esri.SceneView): void {
+export function removeBasemapKeepingWebMercator(view: MapView | SceneView): void {
   view.map!.basemap = null;
   const { spatialReference, lods } = webMercatorViewProperties();
   view.spatialReference = spatialReference;
