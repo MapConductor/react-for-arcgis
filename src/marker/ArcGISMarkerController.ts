@@ -11,6 +11,7 @@ import {
   type MarkerState,
   type Offset,
   type RasterLayerState,
+  markerHitShape,
   pickMarkerHit,
   preferMarkerHit,
   type MarkerHit,
@@ -21,7 +22,6 @@ import { AbstractArcGISController } from './AbstractArcGISController';
 import type Graphic from "@arcgis/core/Graphic";
 
 const MARKER_DRAG_THRESHOLD_PX = 3;
-const MARKER_HIT_PADDING_PX = 4;
 // Same fallback the renderer draws with, so icon-less markers hit-test
 // against the default pin's real bounds instead of a dot at the anchor.
 const DEFAULT_BITMAP_ICON = createDefaultIcon().toBitmapIcon();
@@ -287,15 +287,13 @@ export class ArcGISMarkerController extends AbstractArcGISController<Graphic, Ar
       entity => {
         const anchorScreen = this.renderer.holder.toScreenOffset(entity.state.position);
         if (!anchorScreen) return null;
+        // The pin as drawn, not its square bitmap (a default pin is ~31 px
+        // wide in a 48 px square).
         const bitmapIcon = entity.state.icon?.toBitmapIcon() ?? DEFAULT_BITMAP_ICON;
-        return {
-          anchorScreen,
-          width: bitmapIcon.size.width,
-          height: bitmapIcon.size.height,
-          anchor: bitmapIcon.anchor,
-        };
+        return { anchorScreen, ...markerHitShape(bitmapIcon) };
       },
-      MARKER_HIT_PADDING_PX,
+      // A mouse gets no slop: it points at a pixel.
+      MARKER_HIT_RADIUS_MOUSE_PX,
     );
   }
 
