@@ -359,4 +359,5 @@ declare function ArcGISMapView({ state, mapStyle, onStyleDiagnostics, className,
 }): React.JSX.Element;
 declare function ArcGISMapView2D(props: ArcGISMapViewProps): React.JSX.Element;
 
-export { type ArcGISActualCircle, type ArcGISActualGroundImage, type ArcGISActualMap, type ArcGISActualMarker, type ArcGISActualPolygon, type ArcGISActualPolyline, type ArcGISActualRasterLayer, type ArcGISConfig, type ArcGISDesignTypeChangeHandler, ArcGISDesignTypeInterface, ArcGISMapProvider, ArcGISMapView, ArcGISMapView2D, ArcGISMapViewController, type ArcGISMapViewInitOptions, type ArcGISMapViewProps, ArcGISMapViewStateInterface, ZoomAltitudeConverter, type ZoomAltitudeViewportSize, arcGISScaleToZoom, arcGISZoomToScale };
+export { ArcGISDesignTypeInterface, ArcGISMapProvider, ArcGISMapView, ArcGISMapView2D, ArcGISMapViewController, ArcGISMapViewStateInterface, ZoomAltitudeConverter, arcGISScaleToZoom, arcGISZoomToScale };
+export type { ArcGISActualCircle, ArcGISActualGroundImage, ArcGISActualMap, ArcGISActualMarker, ArcGISActualPolygon, ArcGISActualPolyline, ArcGISActualRasterLayer, ArcGISConfig, ArcGISDesignTypeChangeHandler, ArcGISMapViewInitOptions, ArcGISMapViewProps, ZoomAltitudeViewportSize };
