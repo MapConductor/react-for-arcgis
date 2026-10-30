@@ -6,6 +6,7 @@ import {
   MarkerTileRenderer,
   MarkerTilingOptions,
   RasterLayerSource,
+  tilePixelRatio,
   type GeoPoint,
   type MarkerEntity,
   type MarkerState,
@@ -116,6 +117,9 @@ export class ArcGISMarkerController extends AbstractArcGISController<Graphic, Ar
 
     this.tileRouteId ??= `mc-arcgis-tile-${generateId()}`;
     const server = LocalTileServer.startServer();
+    // The layer's tileInfo stays on the 256px grid; WebTileLayer draws whatever
+    // image it gets over that tile's footprint, so a 2x image is just sharper.
+    const pixelRatio = tilePixelRatio();
     const renderer = new MarkerTileRenderer(
       tiledStates,
       256,
@@ -123,6 +127,7 @@ export class ArcGISMarkerController extends AbstractArcGISController<Graphic, Ar
       1.0,
       false,
       this.tilingOptions.declutterPx,
+      pixelRatio,
     );
     this.tileRenderer = renderer;
     this.tileVersion++;
@@ -135,6 +140,7 @@ export class ArcGISMarkerController extends AbstractArcGISController<Graphic, Ar
       routeId: this.tileRouteId,
       tileSize: 256,
       cacheKey: String(this.tileVersion),
+      pixelRatio,
     });
 
     if (generation !== this.tileGeneration) return;
