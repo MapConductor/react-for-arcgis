@@ -128,7 +128,7 @@ export class ArcGISPolygonOverlayRenderer implements PolygonOverlayRenderer<Grap
 
   private createFillSymbol(state: PolygonState): SimpleFillSymbol {
     const strokeColor = state.strokeColor ?? '#000000';
-    const strokeWidth = (state.strokeWidth ?? 2) * CSS_PIXELS_TO_POINTS;
+    const strokeWidth = (state.strokeWidth ?? 1) * CSS_PIXELS_TO_POINTS;
     const fillColor = state.fillColor ?? 'transparent';
     const fill = toArcGISFillStyle(fillColor);
     const stroke = toArcGISFillStyle(strokeColor);
