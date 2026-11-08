@@ -254,6 +254,16 @@ declare class ArcGISRasterLayerOverlayRenderer implements RasterLayerOverlayRend
     constructor(holder: ArcGISViewHolder);
     createRasterLayer(entity: RasterLayerEntity<Layer>): Promise<Layer | null>;
     removeRasterLayer(layer: Layer): Promise<void>;
+    private readonly stackKeys;
+    private stackSequence;
+    /**
+     * Where a raster goes among the map's operational layers: the lowest overlay band, under the
+     * ground-image media layer and the graphics layers (js-sdk-core OVERLAY_STACK_ORDER), ordered
+     * by zIndex among the rasters. It used to be appended, on top of every overlay and marker.
+     * Marker tiles are mounted as a raster but belong with the markers.
+     */
+    private stackIndex;
+    private stackKeyOf;
     onAdd(data: RasterLayerAddParams[]): Promise<(Layer | null)[]>;
     onChange(data: RasterLayerChangeParams<Layer>[]): Promise<(Layer | null)[]>;
     onRemove(data: RasterLayerEntity<Layer>[]): Promise<void>;
