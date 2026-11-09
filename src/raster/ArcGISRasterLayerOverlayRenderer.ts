@@ -8,6 +8,9 @@ import {
   type RasterLayerChangeParams,
   type RasterLayerOverlayRenderer,
   type RasterLayerSource,
+  type RasterLayerState,
+  overlayStackBeforeId,
+  type OverlayStackKey,
 } from '@mapconductor/js-sdk-core';
 import { ArcGISViewHolder } from '../ArcGISViewHolder';
 import WebTileLayer from '@arcgis/core/layers/WebTileLayer';
@@ -38,7 +41,8 @@ export class ArcGISRasterLayerOverlayRenderer implements RasterLayerOverlayRende
     try {
       const layer = this.buildLayer(entity.state.source);
       if (!layer) return null;
-      this.holder.map.map?.add(layer);
+      const map = this.holder.map.map;
+      if (map) map.add(layer, this.stackIndex(layer, entity.state));
       return layer;
     } catch (e) {
       console.error('Failed to create raster layer:', e);
@@ -48,6 +52,42 @@ export class ArcGISRasterLayerOverlayRenderer implements RasterLayerOverlayRende
 
   async removeRasterLayer(layer: Layer): Promise<void> {
     this.holder.map.map?.remove(layer);
+    this.stackKeys.delete(layer);
+  }
+
+  // Stacking keys of the raster layers this renderer added.
+  private readonly stackKeys = new Map<Layer, OverlayStackKey>();
+  private stackSequence = 0;
+
+  /**
+   * Where a raster goes among the map's operational layers: the lowest overlay band, under the
+   * ground-image media layer and the graphics layers (js-sdk-core OVERLAY_STACK_ORDER), ordered
+   * by zIndex among the rasters. It used to be appended, on top of every overlay and marker.
+   * Marker tiles are mounted as a raster but belong with the markers.
+   */
+  private stackIndex(layer: Layer, state: RasterLayerState): number {
+    const markerTiles = state.id === 'mc-marker-tiles';
+    const key: OverlayStackKey = markerTiles
+      ? { kind: 'marker', sub: 0 }
+      : { kind: 'rasterLayer', zIndex: state.zIndex, sequence: ++this.stackSequence };
+    this.stackKeys.set(layer, key);
+    const layers = this.holder.map.map?.layers.toArray() ?? [];
+    const ids = layers.map((_, i) => String(i));
+    const beforeId = overlayStackBeforeId(ids, (id) => this.stackKeyOf(layers[Number(id)]), key);
+    return beforeId == null ? layers.length : Number(beforeId);
+  }
+
+  private stackKeyOf(layer: Layer): OverlayStackKey | null {
+    const own = this.stackKeys.get(layer);
+    if (own) return own;
+    switch (layer.id) {
+      case 'ground-image-layer': return { kind: 'groundImage' };
+      case 'polygon-layer': return { kind: 'polygon' };
+      case 'circle-layer': return { kind: 'circle' };
+      case 'polyline-layer': return { kind: 'polyline' };
+      case 'marker-layer': return { kind: 'marker', sub: 1 };
+      default: return null;
+    }
   }
 
   async onAdd(data: RasterLayerAddParams[]): Promise<(Layer | null)[]> {
