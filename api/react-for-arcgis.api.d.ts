@@ -260,7 +260,8 @@ declare class ArcGISRasterLayerOverlayRenderer implements RasterLayerOverlayRend
      * Where a raster goes among the map's operational layers: the lowest overlay band, under the
      * ground-image media layer and the graphics layers (js-sdk-core OVERLAY_STACK_ORDER), ordered
      * by zIndex among the rasters. It used to be appended, on top of every overlay and marker.
-     * Marker tiles are mounted as a raster but belong with the markers.
+     * Marker tiles are mounted as a raster but belong with the markers; polygon tiles with the
+     * polygons, under the polygon graphics layer (the natively drawn ones) and over ground images.
      */
     private stackIndex;
     private stackKeyOf;
