@@ -17,7 +17,7 @@ import {
 import {
   useMapViewStyle,
   useCameraRestriction,
-  useMapUISettings,
+  useMapUISettings, usePolylineTilingOptions,
   useMarkerRenderingSupport,
 } from '@mapconductor/js-sdk-react/internal';
 import type {
@@ -68,6 +68,7 @@ export function ArcGISMapView({
   className,
   style,
   markerTilingOptions,
+  polylineTilingOptions,
   minZoom,
   maxZoom,
   restrictBounds,
@@ -148,6 +149,7 @@ export function ArcGISMapView({
       initCameraPosition: state.cameraPosition,
       mapDesignType: state.mapDesignType,
       markerTilingOptions,
+      polylineTilingOptions,
       apiKey: resolvedApiKey,
       useSceneView,
       minZoom,
@@ -261,6 +263,7 @@ export function ArcGISMapView({
   void cameraTick;
 
   useMapUISettings(state, controller);
+  usePolylineTilingOptions(controller, polylineTilingOptions);
   // マップ生成時 config だけでなく、prop の変化にも追随させる（android-sdk 相当）。
   useCameraRestriction(controller, { cameraRestriction, restrictBounds, minZoom, maxZoom });
 

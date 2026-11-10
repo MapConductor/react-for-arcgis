@@ -1,4 +1,4 @@
-import type { GeoRectBounds, MapConfig, MarkerTilingOptions } from '@mapconductor/js-sdk-core';
+import type { GeoRectBounds, MapConfig, MarkerTilingOptions, PolylineTilingOptions } from '@mapconductor/js-sdk-core';
 import type { ArcGISDesignTypeInterface } from './ArcGISMapDesign';
 
 export interface ArcGISMapViewInitOptions {
@@ -10,6 +10,11 @@ export interface ArcGISConfig extends MapConfig {
   apiKey?: string;
   mapDesignType?: ArcGISDesignTypeInterface;
   markerTilingOptions?: MarkerTilingOptions;
+  /**
+   * When to draw polylines as raster tiles; {@link PolylineTilingOptions.Default} if omitted.
+   * The controller's `setPolylineTilingOptions` replaces it later.
+   */
+  polylineTilingOptions?: PolylineTilingOptions;
   useSceneView?: boolean;
   minZoom?: number;
   maxZoom?: number;
