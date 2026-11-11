@@ -1,6 +1,7 @@
 import {
   AbstractMarkerOverlayRenderer,
   createDefaultIcon,
+  markerDrawOrder,
   MarkerEntity,
   type AddParams,
   type BitmapIcon,
@@ -51,6 +52,7 @@ export class ArcGISMarkerRenderer
       symbol: markerSymbol,
       attributes: {
         id: state.id,
+        drawOrder: markerDrawOrder(state.zIndex, state.position),
       },
     });
 
@@ -75,6 +77,7 @@ export class ArcGISMarkerRenderer
 
     const markerSymbol = this.createMarkerSymbol(bitmapIcon);
     graphic.symbol = markerSymbol;
+    graphic.setAttribute('drawOrder', markerDrawOrder(state.zIndex, position));
   }
 
   removeMarker(graphic: Graphic): void {
@@ -99,7 +102,22 @@ export class ArcGISMarkerRenderer
     data.forEach(({ marker }) => { if (marker) this.removeMarker(marker); });
   }
 
-  async onPostProcess(): Promise<void> {}
+  async onPostProcess(): Promise<void> {
+    // ArcGIS draws the graphics of a layer in collection order, later on top.
+    // Sort them by the shared marker draw order (zIndex, then south, then west)
+    // so it does not depend on the order markers were added. Only reorder when
+    // needed — the clear/addMany cycle would otherwise flash on every
+    // composition (same as the polygon renderer).
+    const graphics = this.graphicsLayer.graphics.toArray();
+    if (graphics.length <= 1) return;
+
+    const orderOf = (graphic: Graphic) => (graphic.attributes?.drawOrder as number | undefined) ?? 0;
+    const sorted = [...graphics].sort((a, b) => orderOf(a) - orderOf(b));
+    if (sorted.every((graphic, index) => graphic === graphics[index])) return;
+
+    this.graphicsLayer.graphics.removeAll();
+    this.graphicsLayer.graphics.addMany(sorted);
+  }
 
   setMarkerPosition(entity: MarkerEntity<Graphic>, position: GeoPoint): void {
     if (!entity.marker) return;
@@ -109,6 +127,7 @@ export class ArcGISMarkerRenderer
       latitude: position.latitude,
       spatialReference: { wkid: 4326 },
     } as PointProperties & { type: 'point' };
+    entity.marker.setAttribute('drawOrder', markerDrawOrder(entity.state.zIndex, position));
   }
 
   override setMarkerVisible(entity: MarkerEntity<Graphic>, visible: boolean): void {
