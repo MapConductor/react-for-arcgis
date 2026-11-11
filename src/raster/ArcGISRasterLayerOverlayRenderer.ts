@@ -13,6 +13,7 @@ import {
   type OverlayStackKey,
   POLYGON_TILE_LAYER_ID,
   POLYLINE_TILE_LAYER_ID,
+  CIRCLE_TILE_LAYER_ID,
 } from '@mapconductor/js-sdk-core';
 import { ArcGISViewHolder } from '../ArcGISViewHolder';
 import WebTileLayer from '@arcgis/core/layers/WebTileLayer';
@@ -67,7 +68,8 @@ export class ArcGISRasterLayerOverlayRenderer implements RasterLayerOverlayRende
    * by zIndex among the rasters. It used to be appended, on top of every overlay and marker.
    * Marker tiles are mounted as a raster but belong with the markers; polygon tiles with the
    * polygons, under the polygon graphics layer (the natively drawn ones) and over ground images;
-   * polyline tiles with the polylines, over the circles and under the polyline graphics layer.
+   * circle tiles with the circles, over the polygon graphics layer and under the circle graphics
+   * layer; polyline tiles with the polylines, over the circles and under the polyline graphics layer.
    */
   private stackIndex(layer: Layer, state: RasterLayerState): number {
     const key: OverlayStackKey =
@@ -75,9 +77,11 @@ export class ArcGISRasterLayerOverlayRenderer implements RasterLayerOverlayRende
         ? { kind: 'marker', sub: 0 }
         : state.id === POLYGON_TILE_LAYER_ID
           ? { kind: 'polygon', sub: -1 }
-          : state.id === POLYLINE_TILE_LAYER_ID
-            ? { kind: 'polyline', sub: -1 }
-            : { kind: 'rasterLayer', zIndex: state.zIndex, sequence: ++this.stackSequence };
+          : state.id === CIRCLE_TILE_LAYER_ID
+            ? { kind: 'circle', sub: -1 }
+            : state.id === POLYLINE_TILE_LAYER_ID
+              ? { kind: 'polyline', sub: -1 }
+              : { kind: 'rasterLayer', zIndex: state.zIndex, sequence: ++this.stackSequence };
     this.stackKeys.set(layer, key);
     const layers = this.holder.map.map?.layers.toArray() ?? [];
     const ids = layers.map((_, i) => String(i));

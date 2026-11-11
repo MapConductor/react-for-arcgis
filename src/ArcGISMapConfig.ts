@@ -1,4 +1,4 @@
-import type { GeoRectBounds, MapConfig, MarkerTilingOptions, PolylineTilingOptions } from '@mapconductor/js-sdk-core';
+import type { GeoRectBounds, MapConfig, MarkerTilingOptions, PolylineTilingOptions, CircleTilingOptions } from '@mapconductor/js-sdk-core';
 import type { ArcGISDesignTypeInterface } from './ArcGISMapDesign';
 
 export interface ArcGISMapViewInitOptions {
@@ -15,6 +15,11 @@ export interface ArcGISConfig extends MapConfig {
    * The controller's `setPolylineTilingOptions` replaces it later.
    */
   polylineTilingOptions?: PolylineTilingOptions;
+  /**
+   * When to draw circles as raster tiles; {@link CircleTilingOptions.Default} if omitted.
+   * The controller's `setCircleTilingOptions` replaces it later.
+   */
+  circleTilingOptions?: CircleTilingOptions;
   useSceneView?: boolean;
   minZoom?: number;
   maxZoom?: number;
