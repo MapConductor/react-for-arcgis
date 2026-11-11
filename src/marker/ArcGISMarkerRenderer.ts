@@ -1,7 +1,8 @@
 import {
   AbstractMarkerOverlayRenderer,
   createDefaultIcon,
-  markerDrawOrder,
+  MarkerDrawOrderView,
+  toNativeHeading,
   MarkerEntity,
   type AddParams,
   type BitmapIcon,
@@ -13,6 +14,7 @@ import { ArcGISViewHolder } from '../ArcGISViewHolder';
 import { CSS_PIXELS_TO_POINTS } from '../helpers';
 import { markerVerticalStretch } from '../ArcGIS2DTiltEmulation';
 import Graphic from '@arcgis/core/Graphic';
+import * as reactiveUtils from '@arcgis/core/core/reactiveUtils';
 import type { GraphicProperties } from "@arcgis/core/Graphic";
 import type { IconSymbol3DLayerProperties } from "@arcgis/core/symbols/IconSymbol3DLayer";
 import type { PointProperties } from "@arcgis/core/geometry/Point";
@@ -29,6 +31,37 @@ export class ArcGISMarkerRenderer
   ) {
     super({ holder });
     this.supportsAnimationOverlay = true;
+    // Re-sorting means clearing and refilling the layer, so the order catches
+    // up once the view is stationary rather than following the rotation.
+    reactiveUtils.watch(
+      () => holder.map.stationary,
+      stationary => { if (stationary) this.followHeading(); },
+    );
+  }
+
+  /** @internal */
+  private readonly drawOrder = new MarkerDrawOrderView();
+
+  /** The compass direction at the top of the screen (see markerDrawOrder). @internal */
+  private currentHeading(): number {
+    const view = this.holder.map;
+    // MapView.rotation turns the map clockwise, the same way as MapConductor's bearing.
+    return view.type === '3d' ? view.camera.heading : toNativeHeading(view.rotation);
+  }
+
+  /** Re-sorts after the map turns: among equal zIndex, the one lower on screen is in front. @internal */
+  private followHeading(): void {
+    if (!this.drawOrder.update(this.currentHeading(), this.holder.map.center?.longitude)) return;
+    for (const graphic of this.graphicsLayer.graphics.toArray()) {
+      const point = graphic.geometry as { latitude?: number | null; longitude?: number | null } | null;
+      if (point?.latitude == null || point.longitude == null) continue;
+      const zIndex = graphic.attributes?.zIndex as number | null | undefined;
+      graphic.setAttribute('drawOrder', this.drawOrder.order(zIndex, {
+        latitude: point.latitude,
+        longitude: point.longitude,
+      }));
+    }
+    void this.onPostProcess();
   }
 
   createMarker(
@@ -52,7 +85,8 @@ export class ArcGISMarkerRenderer
       symbol: markerSymbol,
       attributes: {
         id: state.id,
-        drawOrder: markerDrawOrder(state.zIndex, state.position),
+        drawOrder: this.drawOrder.order(state.zIndex, state.position),
+        zIndex: state.zIndex ?? null,
       },
     });
 
@@ -77,7 +111,8 @@ export class ArcGISMarkerRenderer
 
     const markerSymbol = this.createMarkerSymbol(bitmapIcon);
     graphic.symbol = markerSymbol;
-    graphic.setAttribute('drawOrder', markerDrawOrder(state.zIndex, position));
+    graphic.setAttribute('drawOrder', this.drawOrder.order(state.zIndex, position));
+    graphic.setAttribute('zIndex', state.zIndex ?? null);
   }
 
   removeMarker(graphic: Graphic): void {
@@ -104,7 +139,8 @@ export class ArcGISMarkerRenderer
 
   async onPostProcess(): Promise<void> {
     // ArcGIS draws the graphics of a layer in collection order, later on top.
-    // Sort them by the shared marker draw order (zIndex, then south, then west)
+    // Sort them by the shared marker draw order (zIndex, then lower on the
+    // rotated screen, then further left)
     // so it does not depend on the order markers were added. Only reorder when
     // needed — the clear/addMany cycle would otherwise flash on every
     // composition (same as the polygon renderer).
@@ -127,7 +163,7 @@ export class ArcGISMarkerRenderer
       latitude: position.latitude,
       spatialReference: { wkid: 4326 },
     } as PointProperties & { type: 'point' };
-    entity.marker.setAttribute('drawOrder', markerDrawOrder(entity.state.zIndex, position));
+    entity.marker.setAttribute('drawOrder', this.drawOrder.order(entity.state.zIndex, position));
   }
 
   override setMarkerVisible(entity: MarkerEntity<Graphic>, visible: boolean): void {
