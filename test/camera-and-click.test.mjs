@@ -148,10 +148,26 @@ test('3D readCameraPosition converts altitude to zoom and native heading to bear
         extent: null,
     });
     const read = readCameraPosition(deps(view));
-    assert.ok(Math.abs(read.zoom - 11) < 1e-9);
+    assert.ok(Math.abs(read.zoom - 11) < 1e-3);
     assert.equal(read.bearing, 90);
     assert.equal(read.tilt, 30);
-    assert.equal(read.position.altitude, altitude);
+    // position is the ground point at the screen center: the eye advanced along
+    // heading 270 (west) by altitude·tan(30°).
+    assert.ok(read.position.longitude < 139);
+    assert.ok(Math.abs(computeDistanceBetween(read.position, createGeoPoint({ latitude: 35, longitude: 139 })) - altitude * Math.tan(Math.PI / 6)) < 1);
+});
+
+test('3D camera round trip: the requested target comes back as position', () => {
+    const converter = new zoom.ZoomAltitudeConverter();
+    const requested = createMapCameraPosition({ position: createGeoPoint({ latitude: 35.68, longitude: 139.76 }), zoom: 15, bearing: -30, tilt: 60 });
+    const options = converter.mapCameraPositionToCameraOptions(requested);
+    const view = fakeView('3d', {
+        camera: { position: { latitude: options.position.y, longitude: options.position.x, z: options.position.z }, heading: options.heading, tilt: options.tilt },
+        extent: null,
+    });
+    const read = readCameraPosition(deps(view));
+    assert.ok(computeDistanceBetween(read.position, requested.position) < 0.5);
+    assert.ok(Math.abs(read.zoom - 15) < 1e-6);
 });
 
 test('visible region: a WGS84 extent is used as is, corners from min/max', () => {
@@ -186,7 +202,7 @@ function clickDeps({ marker = null, circle = null, polygon = null, polyline = nu
     return {
         dispatched,
         deps: {
-            holder: { fromScreenOffsetSync: () => toMap },
+            holder: { fromPlaneScreenOffsetSync: () => toMap },
             markerController: {
                 findAtScreen: (screen, z) => { dispatched.push(['findAtScreen', screen, z]); return marker; },
                 dispatchClick: (state) => dispatched.push(['marker', state]),

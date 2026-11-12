@@ -247,7 +247,7 @@ export class ArcGISMarkerController extends AbstractArcGISController<Graphic, Ar
    * 「今ドラッグしている」という手掛かりになる。3 プラットフォームでこれに統一している。
    */
   private dragPositionFromEvent(event: ViewDragEventLike): GeoPoint | null {
-    return this.renderer.holder.fromScreenOffsetSync({ x: event.x, y: event.y });
+    return this.renderer.holder.fromPlaneScreenOffsetSync({ x: event.x, y: event.y });
   }
 
   private moveMarkerGraphic(entity: MarkerEntity<Graphic>, position: GeoPoint): void {
@@ -268,7 +268,7 @@ export class ArcGISMarkerController extends AbstractArcGISController<Graphic, Ar
     const regular = this.findHitAtScreen(screen, () => true);
     if (regular?.exact) return regular.item;
     // タイル化マーカーも同じ規則で比べる（指の下に描かれていれば、通常マーカーの近接より勝つ）。
-    const position = this.tileRenderer ? this.renderer.holder.fromScreenOffsetSync(screen) : null;
+    const position = this.tileRenderer ? this.renderer.holder.fromPlaneScreenOffsetSync(screen) : null;
     const tiledHit = position ? this.tileRenderer?.findHit(position, MARKER_HIT_RADIUS_MOUSE_PX, zoom) ?? null : null;
     const tiledEntity = tiledHit ? this.markerManager.getEntity(tiledHit.item.id) : null;
     return preferMarkerHit<MarkerEntity<Graphic>>(
@@ -291,7 +291,7 @@ export class ArcGISMarkerController extends AbstractArcGISController<Graphic, Ar
       screen,
       this.markerManager.allEntities().filter(entity => entity.marker && filter(entity.state)),
       entity => {
-        const anchorScreen = this.renderer.holder.toScreenOffset(entity.state.position);
+        const anchorScreen = this.renderer.holder.toPlaneScreenOffset(entity.state.position);
         if (!anchorScreen) return null;
         // The pin as drawn, not its square bitmap (a default pin is ~31 px
         // wide in a 48 px square).

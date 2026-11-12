@@ -3,7 +3,7 @@ import {
   createGeoRectBounds,
   createMapCameraPosition,
   type MapCameraPosition,
-  type VisibleRegion, bearingFromNativeHeading, toNativeRotation, bearingFromNativeRotation, } from '@mapconductor/js-sdk-core';
+  type VisibleRegion, bearingFromNativeHeading, computeOffset, toNativeRotation, bearingFromNativeRotation, } from '@mapconductor/js-sdk-core';
 import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtils';
 import type { ArcGISViewHolder } from './ArcGISViewHolder';
 import { arcGISScaleToZoom, arcGISZoomToScale } from './ArcGISMapViewController';
@@ -107,24 +107,33 @@ export function readCameraPosition(deps: CameraDeps): MapCameraPosition | null {
   const camera = (deps.holder.map as SceneView).camera;
   if (!camera) return null;
 
-  const latitude = camera.position.latitude ?? camera.position.y ?? 0;
-  const longitude = camera.position.longitude ?? camera.position.x ?? 0;
+  const eye = createGeoPoint({
+    latitude: camera.position.latitude ?? camera.position.y ?? 0,
+    longitude: camera.position.longitude ?? camera.position.x ?? 0,
+  });
+  const altitude = camera.position.z ?? 0;
+  const tilt = camera.tilt ?? 0;
+  // camera.position は目の位置。MapConductor の position は画面中央に見ている
+  // 地点なので、目から視線方向へ altitude·tan(tilt) 進めた地点を返す
+  // （ZoomAltitudeConverter.mapCameraPositionToCameraOptions の逆）。
+  const target = tilt > 0 && tilt < 90
+    ? computeOffset({ origin: eye, distance: altitude * Math.tan((tilt * Math.PI) / 180), heading: camera.heading ?? 0 })
+    : eye;
 
   const zoom = deps.holder.zoomConverter.altitudeToZoomLevel({
-    altitude: camera.position.z ?? 0,
-    latitude,
-    tilt: camera.tilt ?? 0,
+    altitude,
+    latitude: target.latitude,
+    tilt,
   });
 
   return createMapCameraPosition({
     position: createGeoPoint({
-      latitude,
-      longitude,
-      altitude: camera.position.z ?? undefined,
+      latitude: target.latitude,
+      longitude: target.longitude,
     }),
     zoom,
     bearing: bearingFromNativeHeading(camera.heading ?? 0),
-    tilt: camera.tilt ?? 0,
+    tilt,
     visibleRegion: readVisibleRegion(deps),
   });
 }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { AbstractZoomAltitudeConverter, createGeoPoint, createMapCameraPosition } from '@mapconductor/js-sdk-core';
+import { AbstractZoomAltitudeConverter, computeDistanceBetween, createGeoPoint, createMapCameraPosition } from '@mapconductor/js-sdk-core';
 import { buildSources } from './support/buildSources.mjs';
 
 // ズーム <-> 高度（3D SceneView）と ズーム <-> scale（2D MapView）の換算。
@@ -90,8 +90,13 @@ test('camera options: snapped zoom, WGS84 spatial reference, absolute tilt and n
         zoom: 9.5, bearing: 90, tilt: -30,
     });
     const options = converter.mapCameraPositionToCameraOptions(camera);
-    assert.equal(options.position.x, -157.8);
-    assert.equal(options.position.y, 21.3);
+    // The eye sits behind the target (heading 270 → eye to the east) so the target is at the screen center.
+    const snappedDistance0 = converter.zoomLevelToDistance({ zoomLevel: 10, latitude: 21.3 });
+    const eyeOffset = computeDistanceBetween(createGeoPoint({ latitude: 21.3, longitude: -157.8 }),
+        createGeoPoint({ latitude: options.position.y, longitude: options.position.x }));
+    close(eyeOffset, snappedDistance0 * Math.sin(Math.PI / 6), 1e-3);
+    assert.ok(options.position.x > -157.8);
+    assert.ok(Math.abs(options.position.y - 21.3) < 0.05);
     assert.deepEqual(options.position.spatialReference, { wkid: 4326 });
     assert.equal(options.tilt, 30);
     assert.equal(options.heading, 270);

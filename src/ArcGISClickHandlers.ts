@@ -47,7 +47,7 @@ export async function handleMarkerClick(
 export async function handleCircleClick(
   deps: ClickDeps,event: ClickEvent, clicked: GeoPoint): Promise<boolean> {
   const screenPoint = { x: event.x, y: event.y };
-  const position = deps.holder.fromScreenOffsetSync(screenPoint);
+  const position = deps.holder.fromPlaneScreenOffsetSync(screenPoint);
   if (!position) return false;
 
   const circle = deps.circleController.find(position);
@@ -62,7 +62,7 @@ export async function handleCircleClick(
 export async function handlePolygonClick(
   deps: ClickDeps,event: ClickEvent, clicked: GeoPoint): Promise<boolean> {
   const screenPoint = { x: event.x, y: event.y };
-  const position = deps.holder.fromScreenOffsetSync(screenPoint);
+  const position = deps.holder.fromPlaneScreenOffsetSync(screenPoint);
   if (!position) return false;
 
   const polygon = deps.polygonController.find(position);
@@ -77,7 +77,7 @@ export async function handlePolygonClick(
 export async function handlePolylineClick(
   deps: ClickDeps,event: ClickEvent): Promise<boolean> {
   const screenPoint = { x: event.x, y: event.y };
-  const position = deps.holder.fromScreenOffsetSync(screenPoint);
+  const position = deps.holder.fromPlaneScreenOffsetSync(screenPoint);
   if (!position) return false;
 
   const hitResult = deps.polylineController.findWithClosestPoint(position);
@@ -95,7 +95,7 @@ export async function handlePolylineClick(
 export async function handleGroundImageClick(
   deps: ClickDeps,event: ClickEvent, clicked: GeoPoint): Promise<boolean> {
   const screenPoint = { x: event.x, y: event.y };
-  const position = deps.holder.fromScreenOffsetSync(screenPoint);
+  const position = deps.holder.fromPlaneScreenOffsetSync(screenPoint);
   if (!position) return false;
 
   const groundImage = deps.groundImageController.find(position);
