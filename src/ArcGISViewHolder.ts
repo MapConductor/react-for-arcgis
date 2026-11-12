@@ -3,6 +3,7 @@ import {
   createGeoPoint,
   type GeoPoint,
   type GeoPointInterface,
+  type MapPaddings,
   type Offset,
 } from '@mapconductor/js-sdk-core';
 import { ZoomAltitudeConverter } from './zoom';
@@ -26,6 +27,13 @@ export class ArcGISViewHolder extends MapViewHolderBase<HTMLElement, SceneView |
    * @internal
    */
   planeTiltDegrees = 0;
+
+  /**
+   * 最後にカメラを動かしたときの `MapCameraPosition.paddings`（外枠の画素）。
+   * ArcGIS の `View.padding` へは 2D の傾きぶんを直して渡すので、元の値はここに持つ。
+   * @internal
+   */
+  cameraPaddings: MapPaddings | null = null;
 
   // 画面（外枠）上の位置。InfoBubble やアプリが重ねる要素はこの座標で置く。
   // 2D で傾けているときは描画面の座標を外枠へ写す（OpenLayers / HERE の
