@@ -3,6 +3,7 @@ import {
   createGeoRectBounds,
   createMapCameraPosition,
   type MapCameraPosition,
+  MapPaddings,
   type VisibleRegion, bearingFromNativeHeading, computeOffset, toNativeRotation, bearingFromNativeRotation, } from '@mapconductor/js-sdk-core';
 import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtils';
 import type { ArcGISViewHolder } from './ArcGISViewHolder';
@@ -41,6 +42,7 @@ export function applyCamera(
   position: MapCameraPosition,
   { animated, duration, snapZoom = true }: { animated: boolean; duration?: number; snapZoom?: boolean },
 ): Promise<boolean> {
+  applyPaddings(deps, position);
   if (deps.holder.map.type === '2d') {
     deps.setLogicalTilt?.(position.tilt);
     // 2D はカメラピッチを持てない。負 tilt は地上ターゲットを進行方向へ前進させて表現し、
@@ -101,6 +103,9 @@ export function readCameraPosition(deps: CameraDeps): MapCameraPosition | null {
       zoom: restored.zoom,
       bearing: bearingFromNativeRotation(view.rotation),
       tilt: logicalTilt,
+      paddings: deps.holder.cameraPaddings ?? MapPaddings.Zeros,
+      // 2D の tilt は描画面を CSS で潰して見せているだけで、遠近は無い。
+      fov: 0,
       visibleRegion: readVisibleRegion(deps),
     });
   }
@@ -134,8 +139,38 @@ export function readCameraPosition(deps: CameraDeps): MapCameraPosition | null {
     zoom,
     bearing: bearingFromNativeHeading(camera.heading ?? 0),
     tilt,
+    paddings: deps.holder.cameraPaddings ?? MapPaddings.Zeros,
+    fov: verticalFov(camera.fov, deps.holder.map.width, deps.holder.map.height),
     visibleRegion: readVisibleRegion(deps),
   });
+}
+
+/**
+ * `MapCameraPosition.paddings` を ArcGIS の `View.padding` へ。ArcGIS はパディングを
+ * 除いた領域の中央を view の中心にする（3D は遠近込み）。2D で傾けているときは
+ * 描画面を CSS で縦に cos(tilt) 倍へ潰して見せているので、描画面の上では上下の
+ * パディングを 1 / cos(tilt) 倍にする。null は「今のパディングを変えない」。
+ */
+function applyPaddings(deps: CameraDeps, position: MapCameraPosition): void {
+  const paddings = position.paddings ?? deps.holder.cameraPaddings;
+  deps.holder.cameraPaddings = paddings;
+  if (!paddings) return;
+  const verticalScale = deps.holder.map.type === '2d'
+    ? 1 / Math.max(Math.cos((Math.min(60, Math.abs(position.tilt)) * Math.PI) / 180), 0.01)
+    : 1;
+  deps.holder.map.padding = {
+    top: paddings.top * verticalScale,
+    bottom: paddings.bottom * verticalScale,
+    left: paddings.left,
+    right: paddings.right,
+  };
+}
+
+/** SceneView の `camera.fov` は対角の視野角。上下の視野角（度）へ直す。 */
+function verticalFov(diagonalFov: number | undefined, width: number, height: number): number | null {
+  if (diagonalFov == null || !(width > 0) || !(height > 0)) return null;
+  const half = (diagonalFov * Math.PI) / 360;
+  return (2 * Math.atan((Math.tan(half) * height) / Math.hypot(width, height)) * 180) / Math.PI;
 }
 
 export function readVisibleRegion(deps: CameraDeps): VisibleRegion | null {
