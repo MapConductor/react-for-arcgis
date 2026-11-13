@@ -17,7 +17,7 @@ import {
 import {
   useMapViewStyle,
   useCameraRestriction,
-  useMapUISettings,
+  useMapUISettings, usePolylineTilingOptions, useCircleTilingOptions,
   useMarkerRenderingSupport,
 } from '@mapconductor/js-sdk-react/internal';
 import type {
@@ -68,6 +68,8 @@ export function ArcGISMapView({
   className,
   style,
   markerTilingOptions,
+  polylineTilingOptions,
+  circleTilingOptions,
   minZoom,
   maxZoom,
   restrictBounds,
@@ -148,6 +150,8 @@ export function ArcGISMapView({
       initCameraPosition: state.cameraPosition,
       mapDesignType: state.mapDesignType,
       markerTilingOptions,
+      polylineTilingOptions,
+      circleTilingOptions,
       apiKey: resolvedApiKey,
       useSceneView,
       minZoom,
@@ -261,6 +265,8 @@ export function ArcGISMapView({
   void cameraTick;
 
   useMapUISettings(state, controller);
+  usePolylineTilingOptions(controller, polylineTilingOptions);
+  useCircleTilingOptions(controller, circleTilingOptions);
   // マップ生成時 config だけでなく、prop の変化にも追随させる（android-sdk 相当）。
   useCameraRestriction(controller, { cameraRestriction, restrictBounds, minZoom, maxZoom });
 
@@ -285,6 +291,9 @@ export function ArcGISMapView({
 
   // 3D（SceneView）はカメラが実際に傾くので変換しない。2D のみ絶対値で傾ける。
   const tiltPlane = useSceneView ? 0 : Math.min(Math.abs(visualTilt), 60);
+  // holder の toScreenOffset が描画面（傾ける前の平面）の座標を外枠の座標へ写すのに使う。
+  // 描画と同じ値をこの render で渡しておく（effect だと 1 フレーム遅れて InfoBubble がずれる）。
+  if (typedControllerRef.current) typedControllerRef.current.holder.planeTiltDegrees = tiltPlane;
 
   // Esri 標準の UI（ズーム・帰属表示）は `view.ui` = 地図コンテナの中に置かれるため、
   // そのままだと傾けた平面と一緒に潰れ、200% に広がったぶん画面外へも出てしまう。

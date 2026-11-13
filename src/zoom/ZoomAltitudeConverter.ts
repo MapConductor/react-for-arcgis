@@ -1,4 +1,4 @@
-import { AbstractZoomAltitudeConverter, MapCameraPosition, toNativeHeading, } from '@mapconductor/js-sdk-core';
+import { AbstractZoomAltitudeConverter, computeOffset, MapCameraPosition, toNativeHeading, } from '@mapconductor/js-sdk-core';
 import type { CameraProperties } from "@arcgis/core/Camera";
 
 const degToRad = (deg: number) => (deg * Math.PI) / 180;
@@ -146,12 +146,21 @@ export class ZoomAltitudeConverter extends AbstractZoomAltitudeConverter {
         // (rounding would break the fit and neutralize `padding`).
         const effectiveZoom = snapZoom ? snapZoomToGoogle(zoom) : zoom;
         const distance = this.zoomLevelToDistance({ zoomLevel: effectiveZoom, latitude: position.latitude });
-        const altitude = distance * Math.cos(degToRad(tiltAbs));
+        const tiltRad = degToRad(tiltAbs);
+        const altitude = distance * Math.cos(tiltRad);
+        const heading = toNativeHeading(bearing);
+        // Camera.position は「目」の位置。目を target の真上に置いて傾けると、
+        // target は視線から tilt だけ下、tilt が大きいと画面の外に出る（Cesium /
+        // Google 3D は target を画面中央に置く）。target を画面中央に見るには、
+        // 目を視線の逆方向（heading + 180°）へ distance·sin(tilt) 下げる。
+        const eye = tiltAbs > 0
+            ? computeOffset({ origin: position, distance: distance * Math.sin(tiltRad), heading: heading + 180 })
+            : position;
 
         return {
             position: {
-                x: position.longitude,
-                y: position.latitude,
+                x: eye.longitude,
+                y: eye.latitude,
                 z: altitude,
                 // `spatialReference` is REQUIRED here. x/y are WGS84 degrees, but a
                 // plain `{x, y, z}` autocasts to a Point whose spatialReference is
@@ -164,7 +173,7 @@ export class ZoomAltitudeConverter extends AbstractZoomAltitudeConverter {
                 // buttons updated the readout while the SceneView stayed put).
                 spatialReference: { wkid: 4326 },
             },
-            heading: toNativeHeading(bearing),
+            heading,
             tilt: tiltAbs,
         };
     }

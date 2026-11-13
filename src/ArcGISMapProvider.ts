@@ -1,3 +1,4 @@
+import { PolylineTiler, PolylineTilingOptions, CircleTiler, CircleTilingOptions } from '@mapconductor/js-sdk-core';
 import { MapProvider, type MapViewControllerInterface, toNativeRotation, } from '@mapconductor/js-sdk-core';
 import { ArcGISMapViewController, arcGISZoomToScale } from './ArcGISMapViewController';
 import { ArcGISViewHolder } from './ArcGISViewHolder';
@@ -265,6 +266,12 @@ export class ArcGISMapProvider extends MapProvider {
     const markerController = getMarkerController(holder, markerGraphicsLayer, config);
     const circleController = getCircleController(holder, circleGraphicsLayer);
     const polylineController = getPolylineController(holder, polylineGraphicsLayer);
+    // Many polylines are drawn as tiles by the tile service worker and shown as one raster
+    // layer (the view controller mounts it); taps still resolve against the original paths.
+    polylineController.tiler = new PolylineTiler(config.polylineTilingOptions ?? PolylineTilingOptions.Default);
+    // Many circles are drawn as tiles too, shown as one raster layer at the bottom of the circle
+    // band (the view controller mounts it); taps still resolve against the original circles.
+    circleController.tiler = new CircleTiler(config.circleTilingOptions ?? CircleTilingOptions.Default);
     const polygonController = getPolygonController(holder, polygonGraphicsLayer);
     const groundImageController = getGroundImageController(holder, groundImageSource.elements);
     const rasterLayerController = getRasterLayerController(holder);

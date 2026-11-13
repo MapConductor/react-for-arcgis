@@ -1,6 +1,6 @@
 {
   "name": "@mapconductor/react-for-arcgis",
-  "version": "0.3.1",
+  "version": "0.4.1",
   "description": "ArcGIS provider for MapConductor React SDK",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -26,7 +26,7 @@
     "build": "tsup src/index.ts src/state.ts --format cjs,esm --dts",
     "dev": "tsup src/index.ts src/state.ts --format cjs,esm --watch",
     "clean": "rm -rf dist",
-    "test": "echo 'No tests yet'"
+    "test": "node --test \"test/**/*.test.mjs\""
   },
   "keywords": [
     "maps",
@@ -37,13 +37,13 @@
   "author": "MapConductor",
   "license": "Apache-2.0",
   "peerDependencies": {
-    "@mapconductor/js-sdk-core": "^0.3.1",
+    "@mapconductor/js-sdk-core": "^0.4.1",
     "react": "^18.0.0 || ^19.0.0"
   },
   "dependencies": {
     "@arcgis/core": "^5.1.27",
-    "@mapconductor/js-sdk-core": "^0.3.1",
-    "@mapconductor/js-sdk-react": "^0.3.0"
+    "@mapconductor/js-sdk-core": "^0.4.1",
+    "@mapconductor/js-sdk-react": "^0.4.1"
   },
   "devDependencies": {
     "react": "^19.3.1",

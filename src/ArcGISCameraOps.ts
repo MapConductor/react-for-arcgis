@@ -3,7 +3,8 @@ import {
   createGeoRectBounds,
   createMapCameraPosition,
   type MapCameraPosition,
-  type VisibleRegion, bearingFromNativeHeading, toNativeRotation, bearingFromNativeRotation, } from '@mapconductor/js-sdk-core';
+  MapPaddings,
+  type VisibleRegion, bearingFromNativeHeading, computeOffset, toNativeRotation, bearingFromNativeRotation, } from '@mapconductor/js-sdk-core';
 import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtils';
 import type { ArcGISViewHolder } from './ArcGISViewHolder';
 import { arcGISScaleToZoom, arcGISZoomToScale } from './ArcGISMapViewController';
@@ -41,6 +42,7 @@ export function applyCamera(
   position: MapCameraPosition,
   { animated, duration, snapZoom = true }: { animated: boolean; duration?: number; snapZoom?: boolean },
 ): Promise<boolean> {
+  applyPaddings(deps, position);
   if (deps.holder.map.type === '2d') {
     deps.setLogicalTilt?.(position.tilt);
     // 2D はカメラピッチを持てない。負 tilt は地上ターゲットを進行方向へ前進させて表現し、
@@ -101,32 +103,74 @@ export function readCameraPosition(deps: CameraDeps): MapCameraPosition | null {
       zoom: restored.zoom,
       bearing: bearingFromNativeRotation(view.rotation),
       tilt: logicalTilt,
+      paddings: deps.holder.cameraPaddings ?? MapPaddings.Zeros,
+      // 2D の tilt は描画面を CSS で潰して見せているだけで、遠近は無い。
+      fov: 0,
       visibleRegion: readVisibleRegion(deps),
     });
   }
   const camera = (deps.holder.map as SceneView).camera;
   if (!camera) return null;
 
-  const latitude = camera.position.latitude ?? camera.position.y ?? 0;
-  const longitude = camera.position.longitude ?? camera.position.x ?? 0;
+  const eye = createGeoPoint({
+    latitude: camera.position.latitude ?? camera.position.y ?? 0,
+    longitude: camera.position.longitude ?? camera.position.x ?? 0,
+  });
+  const altitude = camera.position.z ?? 0;
+  const tilt = camera.tilt ?? 0;
+  // camera.position は目の位置。MapConductor の position は画面中央に見ている
+  // 地点なので、目から視線方向へ altitude·tan(tilt) 進めた地点を返す
+  // （ZoomAltitudeConverter.mapCameraPositionToCameraOptions の逆）。
+  const target = tilt > 0 && tilt < 90
+    ? computeOffset({ origin: eye, distance: altitude * Math.tan((tilt * Math.PI) / 180), heading: camera.heading ?? 0 })
+    : eye;
 
   const zoom = deps.holder.zoomConverter.altitudeToZoomLevel({
-    altitude: camera.position.z ?? 0,
-    latitude,
-    tilt: camera.tilt ?? 0,
+    altitude,
+    latitude: target.latitude,
+    tilt,
   });
 
   return createMapCameraPosition({
     position: createGeoPoint({
-      latitude,
-      longitude,
-      altitude: camera.position.z ?? undefined,
+      latitude: target.latitude,
+      longitude: target.longitude,
     }),
     zoom,
     bearing: bearingFromNativeHeading(camera.heading ?? 0),
-    tilt: camera.tilt ?? 0,
+    tilt,
+    paddings: deps.holder.cameraPaddings ?? MapPaddings.Zeros,
+    fov: verticalFov(camera.fov, deps.holder.map.width, deps.holder.map.height),
     visibleRegion: readVisibleRegion(deps),
   });
+}
+
+/**
+ * `MapCameraPosition.paddings` を ArcGIS の `View.padding` へ。ArcGIS はパディングを
+ * 除いた領域の中央を view の中心にする（3D は遠近込み）。2D で傾けているときは
+ * 描画面を CSS で縦に cos(tilt) 倍へ潰して見せているので、描画面の上では上下の
+ * パディングを 1 / cos(tilt) 倍にする。null は「今のパディングを変えない」。
+ */
+function applyPaddings(deps: CameraDeps, position: MapCameraPosition): void {
+  const paddings = position.paddings ?? deps.holder.cameraPaddings;
+  deps.holder.cameraPaddings = paddings;
+  if (!paddings) return;
+  const verticalScale = deps.holder.map.type === '2d'
+    ? 1 / Math.max(Math.cos((Math.min(60, Math.abs(position.tilt)) * Math.PI) / 180), 0.01)
+    : 1;
+  deps.holder.map.padding = {
+    top: paddings.top * verticalScale,
+    bottom: paddings.bottom * verticalScale,
+    left: paddings.left,
+    right: paddings.right,
+  };
+}
+
+/** SceneView の `camera.fov` は対角の視野角。上下の視野角（度）へ直す。 */
+function verticalFov(diagonalFov: number | undefined, width: number, height: number): number | null {
+  if (diagonalFov == null || !(width > 0) || !(height > 0)) return null;
+  const half = (diagonalFov * Math.PI) / 360;
+  return (2 * Math.atan((Math.tan(half) * height) / Math.hypot(width, height)) * 180) / Math.PI;
 }
 
 export function readVisibleRegion(deps: CameraDeps): VisibleRegion | null {

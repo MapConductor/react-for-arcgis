@@ -1,4 +1,4 @@
-import { MapConfig, MarkerTilingOptions, GeoRectBounds, MapProvider, MapViewControllerInterface, MarkerOverlayRenderer, MarkerEntity, AbstractZoomAltitudeConverter, MapCameraPosition, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, AbstractMarkerOverlayRenderer, BitmapIcon, AddParams, ChangeParams, AbstractMarkerController, MarkerState, RasterLayerState, CircleOverlayRenderer, CircleEntity, CircleAddParams, CircleChangeParams, CircleController, PolylineOverlayRenderer, PolylineEntity, PolylineAddParams, PolylineChangeParams, PolylineController, PolygonOverlayRenderer, PolygonEntity, PolygonAddParams, PolygonChangeParams, PolygonController, GroundImageOverlayRenderer, GroundImageEntity, GroundImageAddParams, GroundImageChangeParams, GroundImageController, RasterLayerOverlayRenderer, RasterLayerEntity, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, OnMarkerEventHandler, MarkerAnimationOverlayHost, MapViewBaseProps } from '@mapconductor/js-sdk-core';
+import { MapConfig, MarkerTilingOptions, PolylineTilingOptions, CircleTilingOptions, GeoRectBounds, MapProvider, MapViewControllerInterface, MarkerOverlayRenderer, MarkerEntity, AbstractZoomAltitudeConverter, MapCameraPosition, MapViewHolderBase, MapPaddings, GeoPointInterface, Offset, GeoPoint, AbstractMarkerOverlayRenderer, BitmapIcon, AddParams, ChangeParams, AbstractMarkerController, MarkerState, RasterLayerState, CircleOverlayRenderer, CircleEntity, CircleAddParams, CircleChangeParams, CircleController, PolylineOverlayRenderer, PolylineEntity, PolylineAddParams, PolylineChangeParams, PolylineController, PolygonOverlayRenderer, PolygonEntity, PolygonAddParams, PolygonChangeParams, PolygonController, GroundImageOverlayRenderer, GroundImageEntity, GroundImageAddParams, GroundImageChangeParams, GroundImageController, RasterLayerOverlayRenderer, RasterLayerEntity, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, OnMarkerEventHandler, MarkerAnimationOverlayHost, MapViewBaseProps } from '@mapconductor/js-sdk-core';
 import { ArcGISDesignTypeInterface, ArcGISMapViewStateInterface } from './state.js';
 export { ArcGISDesign, ArcGISDesignType, ArcGISMapViewState, ArcGISMapViewStateParams, ArcGISViewState, ArcGISViewStateOptions, useArcGISViewState } from './state.js';
 import Layer from '@arcgis/core/layers/Layer';
@@ -21,6 +21,16 @@ interface ArcGISConfig extends MapConfig {
     apiKey?: string;
     mapDesignType?: ArcGISDesignTypeInterface;
     markerTilingOptions?: MarkerTilingOptions;
+    /**
+     * When to draw polylines as raster tiles; {@link PolylineTilingOptions.Default} if omitted.
+     * The controller's `setPolylineTilingOptions` replaces it later.
+     */
+    polylineTilingOptions?: PolylineTilingOptions;
+    /**
+     * When to draw circles as raster tiles; {@link CircleTilingOptions.Default} if omitted.
+     * The controller's `setCircleTilingOptions` replaces it later.
+     */
+    circleTilingOptions?: CircleTilingOptions;
     useSceneView?: boolean;
     minZoom?: number;
     maxZoom?: number;
@@ -254,6 +264,19 @@ declare class ArcGISRasterLayerOverlayRenderer implements RasterLayerOverlayRend
     constructor(holder: ArcGISViewHolder);
     createRasterLayer(entity: RasterLayerEntity<Layer>): Promise<Layer | null>;
     removeRasterLayer(layer: Layer): Promise<void>;
+    private readonly stackKeys;
+    private stackSequence;
+    /**
+     * Where a raster goes among the map's operational layers: the lowest overlay band, under the
+     * ground-image media layer and the graphics layers (js-sdk-core OVERLAY_STACK_ORDER), ordered
+     * by zIndex among the rasters. It used to be appended, on top of every overlay and marker.
+     * Marker tiles are mounted as a raster but belong with the markers; polygon tiles with the
+     * polygons, under the polygon graphics layer (the natively drawn ones) and over ground images;
+     * circle tiles with the circles, over the polygon graphics layer and under the circle graphics
+     * layer; polyline tiles with the polylines, over the circles and under the polyline graphics layer.
+     */
+    private stackIndex;
+    private stackKeyOf;
     onAdd(data: RasterLayerAddParams[]): Promise<(Layer | null)[]>;
     onChange(data: RasterLayerChangeParams<Layer>[]): Promise<(Layer | null)[]>;
     onRemove(data: RasterLayerEntity<Layer>[]): Promise<void>;
@@ -346,6 +369,18 @@ declare class ArcGISMapViewController extends BaseMapViewController implements M
 interface ArcGISMapViewProps extends MapViewBaseProps<ArcGISMapViewStateInterface> {
     style?: React__default.CSSProperties;
     markerTilingOptions?: MarkerTilingOptions;
+    /**
+     * When to draw polylines as raster tiles ({@link PolylineTilingOptions.Default} if omitted).
+     * Read when the map is created; a later value applies from the next time the polylines are
+     * handed to the map.
+     */
+    polylineTilingOptions?: PolylineTilingOptions;
+    /**
+     * When to draw circles as raster tiles ({@link CircleTilingOptions.Default} if omitted).
+     * Read when the map is created; a later value applies from the next time the circles are
+     * handed to the map.
+     */
+    circleTilingOptions?: CircleTilingOptions;
     minZoom?: number;
     maxZoom?: number;
     /** Restricts panning/zooming so the viewport cannot leave this rectangle. */
@@ -354,7 +389,7 @@ interface ArcGISMapViewProps extends MapViewBaseProps<ArcGISMapViewStateInterfac
     children?: React__default.ReactNode;
 }
 
-declare function ArcGISMapView({ state, mapStyle, onStyleDiagnostics, className, style, markerTilingOptions, minZoom, maxZoom, restrictBounds, cameraRestriction, onError, onMapLoaded, onMapClick, onMapLongClick, onCameraMoveStart, onCameraMove, onCameraMoveEnd, children, useSceneView, }: ArcGISMapViewProps & {
+declare function ArcGISMapView({ state, mapStyle, onStyleDiagnostics, className, style, markerTilingOptions, polylineTilingOptions, circleTilingOptions, minZoom, maxZoom, restrictBounds, cameraRestriction, onError, onMapLoaded, onMapClick, onMapLongClick, onCameraMoveStart, onCameraMove, onCameraMoveEnd, children, useSceneView, }: ArcGISMapViewProps & {
     useSceneView?: boolean;
 }): React.JSX.Element;
 declare function ArcGISMapView2D(props: ArcGISMapViewProps): React.JSX.Element;
