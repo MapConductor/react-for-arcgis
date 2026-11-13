@@ -8,6 +8,71 @@ provider-independent camera, marker, and overlay API, so the same application
 code can also run on Google Maps, MapLibre, Mapbox, Leaflet, OpenLayers,
 Cesium, or HERE.
 
+## Demo
+
+[![Store map sample on ArcGIS](https://raw.githubusercontent.com/MapConductor/react-for-arcgis/main/docs/images/demo.jpg)](https://demo-react.mapconductor.com/arcgis/map/en)
+
+Open it in the [live demo](https://demo-react.mapconductor.com/arcgis/map/en): the same store map runs on every provider, and the page switches between them. The code, cut down to three stores:
+
+```tsx
+import { useMemo, useState } from 'react';
+import {
+  createGeoPoint,
+  createMapCameraPosition,
+  createMarkerState,
+  type MarkerState,
+} from '@mapconductor/js-sdk-core';
+import { InfoBubble, Markers } from '@mapconductor/js-sdk-react';
+import { ArcGISDesign, ArcGISMapView2D, useArcGISViewState } from '@mapconductor/react-for-arcgis';
+
+const STORES = [
+  { id: 'waikiki', name: 'Waikiki', latitude: 21.2793, longitude: -157.8292 },
+  { id: 'kailua', name: 'Kailua', latitude: 21.3972, longitude: -157.7394 },
+  { id: 'haleiwa', name: 'Haleiwa', latitude: 21.5928, longitude: -158.1034 },
+];
+
+const INITIAL_CAMERA = createMapCameraPosition({
+  position: createGeoPoint({ latitude: 21.38, longitude: -157.93 }),
+  zoom: 10,
+});
+
+export default function App() {
+  const mapViewState = useArcGISViewState({
+    apiKey: 'YOUR_ARCGIS_API_KEY',
+    mapDesignType: ArcGISDesign.Streets,
+    cameraPosition: INITIAL_CAMERA,
+  });
+  const [selected, setSelected] = useState<MarkerState | null>(null);
+  const markers = useMemo(
+    () =>
+      STORES.map(store =>
+        createMarkerState({
+          id: store.id,
+          position: createGeoPoint({ latitude: store.latitude, longitude: store.longitude }),
+          extra: store,
+          onClick: marker => setSelected(marker),
+        }),
+      ),
+    [],
+  );
+
+  return (
+    <div style={{ width: '100%', height: '100vh' }}>
+      <ArcGISMapView2D state={mapViewState} onMapClick={() => setSelected(null)}>
+        <Markers states={markers} />
+        {selected && (
+          <InfoBubble marker={selected}>
+            <strong>{(selected.extra as (typeof STORES)[number]).name}</strong>
+          </InfoBubble>
+        )}
+      </ArcGISMapView2D>
+    </div>
+  );
+}
+```
+
+Replace `YOUR_ARCGIS_API_KEY` with your own key.
+
 ## Installation
 
 ```shell
@@ -45,7 +110,7 @@ const mapViewState = useArcGISViewState({
 Leave `apiKey` out and only the OSM-based designs will draw; the Esri ones
 report `ArcGIS API key is required`.
 
-![](https://raw.githubusercontent.com/mapconductor/react-for-arcgis/docs/images/hello-map.jpg)
+![](https://raw.githubusercontent.com/MapConductor/react-for-arcgis/main/docs/images/hello-map.jpg)
 
 ## Hello Map tutorial
 
